@@ -5,6 +5,15 @@ const BASE = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost
 const STEP6 = process.argv.includes("--step6");
 const STEP5 = STEP6 || process.argv.includes("--step5");
 const t0 = Date.now();
+/** The app's main collection: the one with the most rows (an app may also keep e.g. a suppliers list). */
+async function mainColl(app: any): Promise<string | undefined> {
+  let best: string | undefined, n = -1;
+  for (const c of app?.schema ?? []) {
+    const rows = await (await fetch(`${BASE}/api/apps/${app.slug}/${c.name}`)).json();
+    if (rows.length > n) [best, n] = [c.name, rows.length];
+  }
+  return best;
+}
 const log = (...a: any[]) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1).padStart(6)}s]`, ...a);
 
 const state = async () => (await fetch(`${BASE}/api/state`)).json() as Promise<any>;
@@ -71,7 +80,7 @@ if (app) {
   check(done.status === "ready" && done.version >= 1, `inventory ready v${done.version} ${done.error ?? ""}`);
   const html = await fetch(`${BASE}/apps/${app.slug}/`);
   check(html.ok, "iframe html served");
-  const coll = done.schema?.[0]?.name;
+  const coll = await mainColl(done);
   const recs = coll ? await (await fetch(`${BASE}/api/apps/${app.slug}/${coll}`)).json() : [];
   check(recs.length >= 3, `seeded ${recs.length} records in ${coll}`);
 }
@@ -83,7 +92,7 @@ check(hire, `AI employee hired (${hire?.name})`);
 check(s.chat.some((c: any) => c.kind === "connector_card"), "connector card shown");
 if (!s.chat.some((c: any) => c.kind === "connector_card") && hire) s = await say("Yes, go ahead and connect Gmail for them.");
 const appNow = inv(s);
-const coll = appNow?.schema?.[0]?.name;
+const coll = await mainColl(appNow);
 const before = coll ? await (await fetch(`${BASE}/api/apps/${appNow.slug}/${coll}`)).json() : [];
 log("clicking Connect Gmail");
 await post("/api/connectors/gmail/connect", { account: "marko@markosbistro.com" });
