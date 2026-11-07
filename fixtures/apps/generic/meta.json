@@ -1,0 +1,20 @@
+{
+  "collections": [
+    {
+      "name": "items",
+      "fields": [
+        { "name": "name", "type": "text" },
+        { "name": "status", "type": "text" },
+        { "name": "owner", "type": "text" },
+        { "name": "notes", "type": "text" }
+      ]
+    }
+  ],
+  "seed": {
+    "items": [
+      { "name": "Order new menus", "status": "Todo", "owner": "Petar", "notes": "" },
+      { "name": "Fix walk-in fridge door seal", "status": "In progress", "owner": "Luka", "notes": "Technician Thursday" },
+      { "name": "Autumn tasting menu", "status": "Done", "owner": "Ana", "notes": "" }
+    ]
+  }
+}

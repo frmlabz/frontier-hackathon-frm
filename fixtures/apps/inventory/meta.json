@@ -1,0 +1,31 @@
+{
+  "collections": [
+    {
+      "name": "ingredients",
+      "fields": [
+        { "name": "name", "type": "text" },
+        { "name": "category", "type": "text" },
+        { "name": "quantity", "type": "number" },
+        { "name": "unit", "type": "text" },
+        { "name": "minimum", "type": "number" },
+        { "name": "supplier", "type": "text" }
+      ]
+    }
+  ],
+  "seed": {
+    "ingredients": [
+      { "name": "Tomatoes", "category": "Produce", "quantity": 4, "unit": "kg", "minimum": 10, "supplier": "Adriatic Fresh Produce" },
+      { "name": "Lemons", "category": "Produce", "quantity": 3, "unit": "kg", "minimum": 4, "supplier": "Adriatic Fresh Produce" },
+      { "name": "Fresh basil", "category": "Herbs & spices", "quantity": 2, "unit": "bunch", "minimum": 5, "supplier": "Adriatic Fresh Produce" },
+      { "name": "Garlic", "category": "Produce", "quantity": 1.5, "unit": "kg", "minimum": 1, "supplier": "Adriatic Fresh Produce" },
+      { "name": "Olive oil", "category": "Oils & condiments", "quantity": 6, "unit": "L", "minimum": 10, "supplier": "Kalamata Imports" },
+      { "name": "Feta", "category": "Dairy", "quantity": 2, "unit": "kg", "minimum": 5, "supplier": "Kalamata Imports" },
+      { "name": "Kalamata olives", "category": "Oils & condiments", "quantity": 4, "unit": "kg", "minimum": 2, "supplier": "Kalamata Imports" },
+      { "name": "Chicken thighs", "category": "Meat", "quantity": 5, "unit": "kg", "minimum": 8, "supplier": "Novak Butchers" },
+      { "name": "Lamb shoulder", "category": "Meat", "quantity": 3, "unit": "kg", "minimum": 4, "supplier": "Novak Butchers" },
+      { "name": "Flour type 400", "category": "Dry goods", "quantity": 18, "unit": "kg", "minimum": 10, "supplier": "Mlin Flour & Grains" },
+      { "name": "Arborio rice", "category": "Dry goods", "quantity": 3, "unit": "kg", "minimum": 5, "supplier": "Mlin Flour & Grains" },
+      { "name": "Sea salt", "category": "Herbs & spices", "quantity": 4, "unit": "kg", "minimum": 2, "supplier": "Mlin Flour & Grains" }
+    ]
+  }
+}
