@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
+  "packages": [
+    "bun@latest",
+    "just@latest",
+    "jq@latest"
+  ],
+  "env": {
+    "PATH": "$PATH:$PWD/bin"
+  },
+  "shell": {
+    "init_hook": [],
+    "scripts": {
+      "dev": "bun dev",
+      "reset": "rm -rf data && bun dev"
+    }
+  }
+}

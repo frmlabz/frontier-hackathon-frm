@@ -1,0 +1,27 @@
+{
+  "name": "business-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot server/index.ts",
+    "start": "NODE_ENV=production bun server/index.ts",
+    "reset": "rm -rf data && echo 'data/ cleared'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "bun-plugin-tailwind": "^0.1.2",
+    "lucide-react": "^1.70.0",
+    "react": "19",
+    "react-dom": "19",
+    "react-markdown": "^10.1.0",
+    "tailwindcss": "4",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/react": "19",
+    "@types/react-dom": "19",
+    "typescript": "^7.0.2"
+  }
+}
