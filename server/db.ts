@@ -39,6 +39,8 @@ export type App = {
   schema: Collection[] | null; status: string; version: number; step: string; error: string | null; createdAt: number;
   /** Spec blocks changed since the live version was built (added by /api/state). */
   specChanges?: string[];
+  /** Acceptance checks for the live version (added by /api/state); results null until the shell has run them. */
+  checks?: { version: number; at: number; items: { id: string; label: string; row: string | null; text: string }[]; results: Record<string, boolean> | null } | null;
 };
 export type Person = {
   id: string; kind: "human" | "ai"; name: string; role: string; emoji: string; color: string;

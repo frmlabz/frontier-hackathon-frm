@@ -50,7 +50,9 @@ export function Gallery() {
         <AppCardView app={app({ status: "building", step: "Packaging", version: 0 })} />
         <AppCardView app={app({ status: "ready", version: 1 })} />
         <AppCardView app={app({ status: "building", step: "Writing the app", version: 1 })} change="Add a supplier column" specs={["list-ingredients", "supplier-filter"]} />
-        <AppCardView app={app({ status: "ready", version: 2 })} change="Add a supplier column" specs={["list-ingredients", "supplier-filter"]} />
+        <AppCardView app={app({ status: "ready", version: 2 })} change="Add a supplier column" specs={["list-ingredients", "supplier-filter"]} checks={{ version: 2, at: 0, items: [{ id: "a", label: "Feta flagged Low", row: "Feta", text: "Low" }, { id: "b", label: "Supplier column shown", row: null, text: "Supplier" }], results: null }} />
+        <AppCardView app={app({ status: "ready", version: 2 })} change="Add a supplier column" specs={["list-ingredients", "supplier-filter"]} checks={{ version: 2, at: 0, items: [{ id: "a", label: "Feta flagged Low", row: "Feta", text: "Low" }, { id: "b", label: "Supplier column shown", row: null, text: "Supplier" }], results: { a: true, b: true } }} />
+        <AppCardView app={app({ status: "ready", version: 3 })} change="Add a supplier column" specs={["supplier-filter"]} checks={{ version: 3, at: 0, items: [{ id: "a", label: "Feta flagged Low", row: "Feta", text: "Low" }, { id: "b", label: "Supplier column shown", row: null, text: "Supplier" }], results: { a: true, b: false } }} />
         <AppCardView app={app({ status: "fixing", step: "Designing your app", version: 1 })} />
         <AppCardView app={app({ status: "failed", step: "Packaging", version: 0, error: "I couldn’t get this app working. Try describing it a little differently." })} />
         <AppCardView app={app({ status: "ready", version: 2, error: "The last change didn’t work, so the previous version is still live." })} change="Add charts" />

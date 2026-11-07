@@ -322,7 +322,7 @@ Fresh DB (seeded humans + mock inbox).
 - [x] Spec file per app + Spec tab on the App page
 - [x] Build from spec; per-block hashes; "N specs changed" in the build card
 - [x] `edit_app_spec` CEO tool + inline spec editing → regenerate
-- [ ] Acceptance checks from the spec run after each build; failures trigger one auto-fix
+- [x] Acceptance checks from the spec run after each build; failures trigger one auto-fix
 
 ### Stretch B (only after A)
 - [ ] `/api/ai/extract` + `FileDrop` invoice photo import (OCR)
@@ -368,6 +368,6 @@ An :Ingredient: below its minimum shows a red "Low" badge and is counted in a "R
 
 - **Per-block hashing:** each `### id` block is hashed; the build stores the hashes it was built from. On a spec change the build card shows "2 specs changed → regenerating" and the builder prompt gets the previous code, the full spec, and the changed block ids (`<spec change>`). Full regen of the one file is fine; the diff is for the UX and the prompt.
 - **Spec tab** on the App page (App | Spec), Notion-style rendered markdown, editable inline; saving triggers a rebuild. The CEO tool `edit_app_spec({slug, markdown, summary})` does the same from chat ("Add a supplier column" → CEO edits the spec → app follows).
-- **Acceptance checks:** after a build, the builder makes one cheap Claude call that turns the Acceptance list into checks the iframe runs against rendered DOM text (`bos:check` postMessage). Failures trigger one auto-fix rebuild. The card shows ✓ per check.
+- **Acceptance checks:** after a build, the builder makes one cheap Claude call that turns the Acceptance list into checks the iframe runs against rendered DOM text (`bos:check` postMessage). Failures trigger one auto-fix rebuild. The card shows ✓ per check. *As built:* the call (Haiku) also sees the app's current rows and drops lines the data no longer satisfies (e.g. tomatoes stop being low after an invoice), so a rebuild late in the demo doesn't fail a check that was written against the starter data. The shell runs each version's checks once, in an offscreen iframe, from whatever page Marko is on. Only the newest card for an app shows them.
 - Records are never touched by regeneration; schema changes are additive.
 - **As built:** the CEO writes only the spec body; the server adds the frontmatter. A `## Starter data` section says what the first build seeds (the items Marko named, plus realistic example values). The Spec tab lives at `/app/<slug>/spec`. Each version keeps the spec it was built from in `v<N>/spec.md`.

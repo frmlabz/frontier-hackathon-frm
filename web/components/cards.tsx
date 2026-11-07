@@ -10,7 +10,26 @@ function CardShell({ children, className }: { children: React.ReactNode; classNa
 }
 
 // ---------- App card ----------
-export function AppCardView({ app, change, specs }: { app: Pick<App, "slug" | "name" | "emoji" | "status" | "step" | "version" | "error" | "description">; change?: string; specs?: string[] }) {
+/** Acceptance checks from the spec for the live version: spinner while they run, then ✓ / ✗ each. */
+export function ChecksRow({ checks }: { checks: NonNullable<App["checks"]> }) {
+  const r = checks.results;
+  return (
+    <div data-checks className="px-4 pb-3 -mt-1 pl-[68px] flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+      <span className="text-faint">{r ? "Checks" : "Checking"}</span>
+      {checks.items.map((c) => {
+        const ok = r?.[c.id];
+        return (
+          <span key={c.id} data-check={r ? (ok ? "pass" : "fail") : "pending"} className={cx("inline-flex items-center gap-1", !r ? "text-muted" : ok ? "text-ink" : "text-[#c4554d]")} title={`Expects "${c.text}"${c.row ? ` in the ${c.row} row` : ""}`}>
+            {!r ? <Spinner size={10} /> : ok ? <Check size={12} strokeWidth={3} className="text-green" /> : <X size={12} strokeWidth={3} />}
+            <span className={cx(!r && "text-shimmer")}>{c.label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export function AppCardView({ app, change, specs, checks }: { app: Pick<App, "slug" | "name" | "emoji" | "status" | "step" | "version" | "error" | "description">; change?: string; specs?: string[]; checks?: App["checks"] }) {
   const ready = app.status === "ready";
   const failed = app.status === "failed";
   const fixing = app.status === "fixing";
@@ -71,18 +90,22 @@ export function AppCardView({ app, change, specs }: { app: Pick<App, "slug" | "n
           {failed && <div className="mt-1 text-[13px] text-[#c4554d]">{app.error ?? "Setup failed."}</div>}
         </div>
       )}
+      {ready && checks && checks.version === app.version && <ChecksRow checks={checks} />}
       {ready && app.error && <div className="px-4 pb-3 -mt-1 text-[13px] text-muted">{app.error}</div>}
     </CardShell>
   );
 }
 
-export function AppCard({ payload }: { payload: { slug: string; change?: string; specs?: string[]; fromVersion?: number } }) {
+export function AppCard({ id, payload }: { id?: number; payload: { slug: string; change?: string; specs?: string[]; fromVersion?: number } }) {
   const app = useStore((s) => s.apps.find((a) => a.slug === payload.slug));
+  // Only the newest card for an app shows the live version's checks.
+  const latest = useStore((s) => s.chat.findLast((c) => c.kind === "app_card" && c.payload?.slug === payload.slug)?.id === id);
   if (!app) return null;
-  // An update card whose version has since been built (or superseded) shows as done, not tied to later builds.
-  const done = payload.fromVersion != null && app.version > payload.fromVersion;
-  const shown = done ? { ...app, status: "ready" as const, version: payload.fromVersion! + 1, error: null } : app;
-  return <AppCardView app={shown} change={payload.change} specs={payload.specs} />;
+  // Older cards are history: they show as done at the version they produced, never tied to later builds.
+  // The newest card follows the live app (including an auto-fix of its build) and shows its checks.
+  const done = id != null && !latest;
+  const shown = done ? { ...app, status: "ready" as const, version: (payload.fromVersion ?? 0) + 1, error: null } : app;
+  return <AppCardView app={shown} change={payload.change} specs={payload.specs} checks={latest && !done ? app.checks : null} />;
 }
 
 // ---------- Hire card ----------

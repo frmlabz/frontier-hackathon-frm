@@ -91,7 +91,7 @@ function Item({ item, showAvatar }: { item: ChatItem; showAvatar: boolean }) {
     case "ceo":
       return <CeoMessage text={item.payload.text} showAvatar={showAvatar} />;
     case "app_card":
-      return <div className="pl-9"><AppCard payload={item.payload} /></div>;
+      return <div className="pl-9"><AppCard id={item.id} payload={item.payload} /></div>;
     case "hire_card":
       return <div className="pl-9"><HireCard payload={item.payload} /></div>;
     case "connector_card":

@@ -18,6 +18,31 @@ const reportError = (message: string, stack?: string) => {
 window.addEventListener("error", (e) => reportError(e.message, e.error?.stack));
 window.addEventListener("unhandledrejection", (e) => reportError(e.reason?.message ?? String(e.reason), e.reason?.stack));
 
+// Stretch A: acceptance checks from the spec, run against the rendered text (polls until they pass or 8s pass).
+type Check = { id: string; row: string | null; text: string };
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+function passes(c: Check) {
+  const want = norm(c.text);
+  if (!c.row) return norm(document.body.innerText).includes(want);
+  const key = norm(c.row);
+  for (const r of document.querySelectorAll<HTMLElement>("tr, [role=row], li, .bos-card:not(:has(tr, li))")) {
+    const t = norm(r.innerText);
+    if (t.includes(key) && t.includes(want)) return true;
+  }
+  return false;
+}
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin || e.data?.type !== "bos:check" || !Array.isArray(e.data.checks)) return;
+  const checks: Check[] = e.data.checks;
+  const started = Date.now();
+  const tick = () => {
+    const results = Object.fromEntries(checks.map((c) => [c.id, passes(c)]));
+    if (Object.values(results).every(Boolean) || Date.now() - started > 8000) post({ type: "bos:check-result", results });
+    else setTimeout(tick, 400);
+  };
+  tick();
+});
+
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   override state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) {

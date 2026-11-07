@@ -7,6 +7,7 @@ import {
   DATA_DIR, MOCK, countRecords, getApp, insertRecord, listKnowledge, patchApp, type App, type Collection,
 } from "./db";
 import { diffCount, pendingSpecChanges, writeSpec, type SpecDiff } from "./spec";
+import { prepareChecks, type Check } from "./checks";
 
 const ROOT = resolve(import.meta.dir, "..");
 const RUNTIME = {
@@ -94,7 +95,7 @@ const OUTPUT_SCHEMA = {
 };
 
 export type BuildOutput = { code: string; collections: Collection[]; seed: Record<string, any[]> | null };
-type BuildReason = { changeRequest?: string; error?: string };
+type BuildReason = { changeRequest?: string; error?: string; failedChecks?: Check[] };
 
 const running = new Set<string>();
 const autoFixed = new Set<string>(); // `${slug}@v${n}` that already got their one auto-fix
@@ -131,6 +132,16 @@ export function autoFix(slug: string, message: string, stack: string) {
   return startBuild(slug, { error: `${message}\n${stack}`.slice(0, 3000) });
 }
 
+/** Acceptance checks failed on the current version: one rebuild with the failures (shares the one-fix-per-version budget). */
+export function checkFix(slug: string, failed: Check[]) {
+  const app = getApp(slug);
+  if (!app || app.status !== "ready" || app.version < 1 || !failed.length) return false;
+  const key = `${slug}@v${app.version}`;
+  if (autoFixed.has(key)) return false;
+  autoFixed.add(key);
+  return startBuild(slug, { failedChecks: failed });
+}
+
 function userPrompt(app: App, reason: BuildReason, code: string | null, diff: SpecDiff | null) {
   const knowledge = listKnowledge().map((p) => `## ${p.emoji} ${p.title}\n${p.markdown}`).join("\n\n");
   const parts = [
@@ -151,6 +162,10 @@ function userPrompt(app: App, reason: BuildReason, code: string | null, diff: Sp
     parts.push(`<spec_change>\nThe spec changed since the current code was generated. Blocks: ${list.join(", ")}.\nRegenerate App.tsx so it implements the full spec, focusing on these blocks; keep everything else working as it does now.\n</spec_change>`);
   }
   if (reason.changeRequest) parts.push(`<change_request>\n${reason.changeRequest}\n</change_request>`);
+  if (reason.failedChecks?.length)
+    parts.push(
+      `<failed_checks>\nThe app runs, but these acceptance checks from the spec failed against the rendered page on first load:\n${reason.failedChecks.map((c) => `- ${c.label}: expected "${c.text}"${c.row ? ` in the row for "${c.row}"` : " on the page"}`).join("\n")}\nFix the app so they pass without any clicks: the rows and text must be visible when the page opens.\n</failed_checks>`,
+    );
   if (reason.error) parts.push(`<runtime_error>\nThe current version crashed in the browser with:\n${reason.error}\nFix the cause.\n</runtime_error>`);
   if (!code) parts.push(`Today is ${new Date().toISOString().slice(0, 10)}. Seed dates must be within the last two weeks.`);
   parts.push(code ? "Return the full updated app." : "Write the app.");
@@ -240,7 +255,7 @@ async function build(slug: string, reason: BuildReason) {
   const prevCode = prevVersion > 0 && existsSync(`${DATA_DIR}/apps/${slug}/v${prevVersion}/App.tsx`)
     ? readFileSync(`${DATA_DIR}/apps/${slug}/v${prevVersion}/App.tsx`, "utf8")
     : null;
-  const fixing = !!reason.error;
+  const fixing = !!reason.error || !!reason.failedChecks?.length;
 
   setStatus(slug, { status: fixing ? "fixing" : "generating", step: STEPS[0], error: null });
 
@@ -308,5 +323,7 @@ function promote(slug: string, version: number, out: BuildOutput, first: boolean
   setStatus(slug, { schema: merged, version, status: "ready", step: STEPS[3], error: null });
   for (const c of seeded) publish({ type: "records.changed", app: slug, collection: c });
   publish({ type: "state.changed" });
+  // Acceptance checks for this version; the shell runs them once they exist.
+  void prepareChecks(slug).then((ok) => ok && publish({ type: "state.changed" }));
 }
 

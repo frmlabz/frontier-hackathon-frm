@@ -176,7 +176,7 @@ export function applySpecEdit(slug: string, markdown: string, summary: string): 
     return { text: textChanged ? "Saved. No block that drives the app changed, so it wasn't rebuilt." : "The spec is unchanged and the app is up to date." };
   chat("app_card", { slug: app.slug, change: summary, fromVersion: app.version, specs });
   startBuild(app.slug);
-  return { text: `Regenerating ${app.name} from the updated spec ${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept.` };
+  return { text: `Regenerating ${app.name} from the updated spec${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept.` };
 }
 
 export function runTool(name: string, input: any): { text: string; isError?: boolean } {

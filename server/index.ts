@@ -5,7 +5,8 @@ import { publish, setServer, TOPIC } from "./bus";
 import {
   DATA_DIR, MOCK, connect, createApp, deleteRecord, getApp, insertChatItem, insertRecord, kv, listRecords, snapshot, updateRecord,
 } from "./db";
-import { autoFix, bundle, startBuild } from "./builder";
+import { autoFix, bundle, checkFix, startBuild } from "./builder";
+import { dataChangedSince, getChecks, prepareChecks, recordResults } from "./checks";
 import { specChangeIds } from "./spec";
 import { applySpecEdit, enqueue, isBusy } from "./ceo";
 import { MODEL } from "./claude";
@@ -53,7 +54,7 @@ const server = Bun.serve({
 
     "/api/state": () => {
       const s = snapshot();
-      const apps = s.apps.map((a) => ({ ...a, specChanges: specChangeIds(a) }));
+      const apps = s.apps.map((a) => ({ ...a, specChanges: specChangeIds(a), checks: getChecks(a.slug, a.version) }));
       return json({ ...s, apps, model: MODEL, busy: isBusy() });
     },
 
@@ -103,6 +104,25 @@ const server = Bun.serve({
         const { markdown = "" } = await body(req);
         const r = applySpecEdit(req.params.slug, String(markdown), "Edited the spec");
         return json({ ok: !r.isError, message: r.text }, r.building ? 409 : r.isError ? 400 : 200);
+      },
+    },
+
+    "/api/apps/:slug/checks": {
+      POST: async (req) => {
+        const { version, results = {} } = await body(req);
+        const slug = req.params.slug;
+        if (getApp(slug)?.version !== Number(version)) return json({ ok: false, stale: true });
+        const before = getChecks(slug, Number(version));
+        if (!before || before.results) return json({ ok: true, failed: 0, fixing: false });
+        // Failures against data that changed after the checks were written don't count: rewrite the checks and rerun.
+        if (Object.values(results).some((v) => !v) && dataChangedSince(slug, before.at)) {
+          void prepareChecks(slug).then(() => publish({ type: "state.changed" }));
+          return json({ ok: true, rechecking: true });
+        }
+        const failed = recordResults(slug, Number(version), results);
+        publish({ type: "state.changed" });
+        const fixing = failed.length ? checkFix(slug, failed) : false;
+        return json({ ok: true, failed: failed.length, fixing });
       },
     },
 

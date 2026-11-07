@@ -8,6 +8,7 @@ import { KnowledgePage } from "./components/KnowledgePage";
 import { PersonPage, TeamPage } from "./components/TeamPage";
 import { Gallery } from "./components/Gallery";
 import { PageChrome } from "./components/common";
+import { CheckRunner } from "./components/CheckRunner";
 
 function Route() {
   const path = useStore((s) => s.path);
@@ -31,6 +32,7 @@ function Root() {
       <main className="flex-1 min-w-0 h-full">
         <Route />
       </main>
+      <CheckRunner />
     </div>
   );
 }
