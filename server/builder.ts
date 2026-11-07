@@ -201,12 +201,14 @@ function seedProblem(out: BuildOutput): string | null {
 }
 
 export async function bundle(dir: string) {
-  writeFileSync(`${dir}/entry.tsx`, `import App from "./App.tsx";\nimport { mount } from "@bos/entry";\nmount(App);\n`);
+  // @bos/entry first: its error listeners must exist before App.tsx's top-level code runs.
+  writeFileSync(`${dir}/entry.tsx`, `import { mount } from "@bos/entry";\nimport App from "./App.tsx";\nmount(App);\n`);
   const result = await Bun.build({
     entrypoints: [`${dir}/entry.tsx`],
     outdir: dir,
     target: "browser",
     naming: "app.js",
+    throw: false, // return errors so the retry loop can feed them back to the model
     minify: { whitespace: true, syntax: true },
     define: { "process.env.NODE_ENV": '"production"' },
     plugins: [

@@ -138,7 +138,9 @@ const server = Bun.serve({
       const rest = new URL(req.url).pathname.slice(`/apps/${slug}/`.length);
       if (rest === "" || rest === "index.html") {
         if (app.version < 1) return new Response("Still building", { status: 404 });
-        return new Response(appHtml(`/apps/${slug}/v${app.version}/app.js`), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+        // The build time is in the URL: bundles are cached forever, and a reset DB restarts at v1.
+        const built = Math.round(Bun.file(`${DATA_DIR}/apps/${slug}/v${app.version}/app.js`).lastModified);
+        return new Response(appHtml(`/apps/${slug}/v${app.version}/app.js?b=${built}`), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       }
       const m = rest.match(/^v(\d+)\/app\.js$/);
       const file = m && `${DATA_DIR}/apps/${slug}/v${m[1]}/app.js`;

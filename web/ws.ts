@@ -9,11 +9,10 @@ export function connectWs() {
     ws.onopen = () => {
       retry = 0;
       useStore.setState({ online: true });
-      if (everOpen) {
-        void refresh();
-        void resyncChat();
-        forwardRecords("*", "*"); // records may have changed while we were offline
-      }
+      // Resync on every open, the first included: events between the initial snapshot and the subscription are otherwise lost.
+      void refresh();
+      void resyncChat();
+      if (everOpen) forwardRecords("*", "*"); // records may have changed while we were offline
       everOpen = true;
     };
     ws.onmessage = (e) => {

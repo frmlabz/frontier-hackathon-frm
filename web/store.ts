@@ -71,10 +71,15 @@ window.addEventListener("popstate", () => set({ path: location.pathname, ...(loc
 
 // ---------- data ----------
 let firstLoad = true;
+let refreshSeq = 0;
+let appliedSeq = 0;
 export async function refresh() {
-  const r = await fetch("/api/state");
-  if (!r.ok) return;
+  const seq = ++refreshSeq;
+  const r = await fetch("/api/state").catch(() => null);
+  if (!r?.ok) return;
   const s = await r.json();
+  if (seq < appliedSeq) return; // a newer snapshot was already applied
+  appliedSeq = seq;
   const prev = get();
   if (!firstLoad) {
     const newKeys = [
@@ -100,12 +105,16 @@ export async function refresh() {
   });
 }
 
-/** Re-sync chat after a reconnect (missed events). */
+/** Re-sync chat after a (re)connect (missed events). */
+let chatEvents = 0;
 async function resyncChat() {
-  const r = await fetch("/api/state");
-  if (!r.ok) return;
+  const seen = chatEvents;
+  const r = await fetch("/api/state").catch(() => null);
+  if (!r?.ok) return;
   const s = await r.json();
-  set({ chat: s.chat, live: "", busy: !!s.busy });
+  if (seen === chatEvents) return set({ chat: s.chat, live: "", busy: !!s.busy });
+  // Events arrived meanwhile: the socket is newer than the snapshot, so only add what we missed.
+  set((cur) => ({ chat: [...s.chat, ...cur.chat.filter((c) => !s.chat.some((x: ChatItem) => x.id === c.id))] }));
 }
 
 /** Forward record changes into matching app iframes. */
@@ -117,6 +126,7 @@ export function forwardRecords(app: string, collection: string) {
 }
 
 export function handle(ev: BusEvent) {
+  if (ev.type.startsWith("chat.") || ev.type === "ceo.busy") chatEvents++;
   switch (ev.type) {
     case "chat.delta":
       set((s) => ({ live: s.live + ev.text }));
