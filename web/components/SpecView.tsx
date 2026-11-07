@@ -1,20 +1,34 @@
+import { useMemo } from "react";
 import { FileText } from "lucide-react";
 import type { Components } from "react-markdown";
 import type { App } from "../store";
-import { Markdown, PageTitle, Spinner } from "./common";
+import { Markdown, PageTitle, Spinner, cx } from "./common";
 
 const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n*/, "");
 const humanize = (id: string) => id.replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 /** `:Ingredient:` marks a defined record; render it as a chip (via inline code). */
 const markConcepts = (md: string) => md.replace(/(?<![`\w]):([A-Z][\w ]{0,40}?):(?![`\w])/g, "`:$1:`");
 
-const components: Components = {
+const text = (children: unknown) => String(Array.isArray(children) ? children.join("") : children ?? "").trim();
+
+const makeComponents = (changed: Set<string>, working: boolean): Components => {
+  const mark = (id: string) =>
+    changed.has(id) && <span className={cx("spec-changed", working && "text-shimmer")}>{working ? "Regenerating" : "Not built yet"}</span>;
+  return {
+  // Definitions and Acceptance are hashed as whole sections.
+  h2: ({ children }) => (
+    <h2 className="flex items-baseline gap-2.5">
+      {children}
+      {mark(text(children).toLowerCase())}
+    </h2>
+  ),
   h3: ({ children }) => {
-    const id = String(Array.isArray(children) ? children.join("") : children ?? "").trim();
+    const id = text(children);
     return (
       <h3 data-spec-block={id} className="spec-block">
         <span>{humanize(id)}</span>
         <code className="spec-id">{id}</code>
+        {mark(id)}
       </h3>
     );
   },
@@ -23,12 +37,15 @@ const components: Components = {
     const concept = /^:(.+):$/.exec(t);
     return concept ? <span className="spec-concept">{concept[1]}</span> : <code>{children}</code>;
   },
+  };
 };
 
 /** Stretch A: the app's spec, the source of truth the code is generated from. */
 export function SpecView({ app }: { app: App }) {
   const body = stripFrontmatter(app.spec ?? "").trim();
   const working = ["generating", "building", "fixing"].includes(app.status);
+  const changedKey = (app.specChanges ?? []).join(",");
+  const components = useMemo(() => makeComponents(new Set(changedKey.split(",").filter(Boolean)), working), [changedKey, working]);
   const state = working
     ? <span className="inline-flex items-center gap-1.5 text-shimmer"><Spinner size={11} /> Regenerating the app from this spec…</span>
     : app.error

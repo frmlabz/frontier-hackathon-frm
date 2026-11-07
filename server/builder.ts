@@ -6,7 +6,7 @@ import { publish } from "./bus";
 import {
   DATA_DIR, MOCK, countRecords, getApp, insertRecord, listKnowledge, patchApp, type App, type Collection,
 } from "./db";
-import { writeSpec } from "./spec";
+import { diffCount, pendingSpecChanges, writeSpec, type SpecDiff } from "./spec";
 
 const ROOT = resolve(import.meta.dir, "..");
 const RUNTIME = {
@@ -131,7 +131,7 @@ export function autoFix(slug: string, message: string, stack: string) {
   return startBuild(slug, { error: `${message}\n${stack}`.slice(0, 3000) });
 }
 
-function userPrompt(app: App, reason: BuildReason, code: string | null) {
+function userPrompt(app: App, reason: BuildReason, code: string | null, diff: SpecDiff | null) {
   const knowledge = listKnowledge().map((p) => `## ${p.emoji} ${p.title}\n${p.markdown}`).join("\n\n");
   const parts = [
     `<business_knowledge>\n${knowledge || "(none yet)"}\n</business_knowledge>`,
@@ -144,6 +144,11 @@ function userPrompt(app: App, reason: BuildReason, code: string | null) {
     parts.push(
       "This is a rebuild. Existing records must keep working: keep every existing collection and field name (you may add new ones). seed_json is ignored on rebuilds; return \"{}\".",
     );
+  }
+  if (diffCount(diff)) {
+    const d = diff!;
+    const list = [...d.added.map((id) => `${id} (new)`), ...d.changed.map((id) => `${id} (changed)`), ...d.removed.map((id) => `${id} (removed)`)];
+    parts.push(`<spec_change>\nThe spec changed since the current code was generated. Blocks: ${list.join(", ")}.\nRegenerate App.tsx so it implements the full spec, focusing on these blocks; keep everything else working as it does now.\n</spec_change>`);
   }
   if (reason.changeRequest) parts.push(`<change_request>\n${reason.changeRequest}\n</change_request>`);
   if (reason.error) parts.push(`<runtime_error>\nThe current version crashed in the browser with:\n${reason.error}\nFix the cause.\n</runtime_error>`);
@@ -241,7 +246,7 @@ async function build(slug: string, reason: BuildReason) {
 
   const dir = `${DATA_DIR}/apps/${slug}/v${next}`;
   mkdirSync(dir, { recursive: true });
-  const messages: any[] = [{ role: "user", content: userPrompt(app, reason, prevCode) }];
+  const messages: any[] = [{ role: "user", content: userPrompt(app, reason, prevCode, prevCode ? pendingSpecChanges(app) : null) }];
   let lastErr = "";
 
   for (let attempt = 1; attempt <= 3; attempt++) {

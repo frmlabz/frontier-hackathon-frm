@@ -320,7 +320,7 @@ Fresh DB (seeded humans + mock inbox).
 
 ### Stretch A — Regenerative apps (§15), one commit per step, tag `demo-core` first
 - [x] Spec file per app + Spec tab on the App page
-- [ ] Build from spec; per-block hashes; "N specs changed" in the build card
+- [x] Build from spec; per-block hashes; "N specs changed" in the build card
 - [ ] `edit_app_spec` CEO tool + inline spec editing → regenerate
 - [ ] Acceptance checks from the spec run after each build; failures trigger one auto-fix
 

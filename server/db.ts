@@ -37,6 +37,8 @@ export type Collection = { name: string; fields: Field[] };
 export type App = {
   slug: string; name: string; emoji: string; description: string; spec: string;
   schema: Collection[] | null; status: string; version: number; step: string; error: string | null; createdAt: number;
+  /** Spec blocks changed since the live version was built (added by /api/state). */
+  specChanges?: string[];
 };
 export type Person = {
   id: string; kind: "human" | "ai"; name: string; role: string; emoji: string; color: string;

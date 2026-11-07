@@ -6,7 +6,7 @@ import {
   listApps, listConnectors, listKnowledge, listPeople, countRecords, patchApp, upsertKnowledge,
 } from "./db";
 import { isBuilding, startBuild } from "./builder";
-import { SPEC_FORMAT, addSpecBlock, writeSpec } from "./spec";
+import { SPEC_FORMAT, addSpecBlock, specChangeIds, writeSpec } from "./spec";
 import { isRunning, startEmployee } from "./employee";
 
 export type Job = { kind: "user" | "event"; text: string };
@@ -174,9 +174,11 @@ export function runTool(name: string, input: any): { text: string; isError?: boo
       const app = getApp(input.slug);
       if (!app) return { text: `No app with slug ${input.slug}.`, isError: true };
       if (isBuilding(app.slug)) return { text: "That app is being set up right now; try again when it's ready.", isError: true };
-      writeSpec(patchApp(app.slug, { spec: addSpecBlock(app.spec, `change-v${app.version + 1}`, input.change_request) }));
+      const updated = patchApp(app.slug, { spec: addSpecBlock(app.spec, `change-v${app.version + 1}`, input.change_request) });
+      writeSpec(updated);
       publish({ type: "state.changed" });
-      chat("app_card", { slug: app.slug, change: input.summary || input.change_request, fromVersion: app.version });
+      const specs = specChangeIds(updated);
+      chat("app_card", { slug: app.slug, change: input.summary || input.change_request, fromVersion: app.version, specs });
       startBuild(app.slug, { changeRequest: input.change_request });
       return { text: `Update started for ${app.name}. Existing data is kept.` };
     }

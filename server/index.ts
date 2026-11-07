@@ -6,6 +6,7 @@ import {
   DATA_DIR, MOCK, connect, createApp, deleteRecord, getApp, insertChatItem, insertRecord, kv, listRecords, snapshot, updateRecord,
 } from "./db";
 import { autoFix, bundle, startBuild } from "./builder";
+import { specChangeIds } from "./spec";
 import { enqueue, isBusy } from "./ceo";
 import { MODEL } from "./claude";
 
@@ -50,7 +51,11 @@ const server = Bun.serve({
   routes: {
     "/ws": (req, srv) => (srv.upgrade(req) ? undefined : new Response("expected websocket", { status: 400 })),
 
-    "/api/state": () => json({ ...snapshot(), model: MODEL, busy: isBusy() }),
+    "/api/state": () => {
+      const s = snapshot();
+      const apps = s.apps.map((a) => ({ ...a, specChanges: specChangeIds(a) }));
+      return json({ ...s, apps, model: MODEL, busy: isBusy() });
+    },
 
     "/api/chat": {
       POST: async (req) => {

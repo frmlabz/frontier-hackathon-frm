@@ -10,7 +10,7 @@ function CardShell({ children, className }: { children: React.ReactNode; classNa
 }
 
 // ---------- App card ----------
-export function AppCardView({ app, change }: { app: Pick<App, "slug" | "name" | "emoji" | "status" | "step" | "version" | "error" | "description">; change?: string }) {
+export function AppCardView({ app, change, specs }: { app: Pick<App, "slug" | "name" | "emoji" | "status" | "step" | "version" | "error" | "description">; change?: string; specs?: string[] }) {
   const ready = app.status === "ready";
   const failed = app.status === "failed";
   const fixing = app.status === "fixing";
@@ -26,6 +26,19 @@ export function AppCardView({ app, change }: { app: Pick<App, "slug" | "name" | 
             {ready && app.version > 1 && <Badge tone="blue">v{app.version}</Badge>}
           </div>
           <div className="text-[13px] text-muted truncate">{change || app.description}</div>
+          {!!specs?.length && (
+            <button
+              data-spec-changes
+              onClick={() => navigate(`/app/${app.slug}/spec`)}
+              className="mt-1.5 flex flex-wrap items-center gap-1 text-[12px] text-muted cursor-pointer text-left"
+              title="Open the spec"
+            >
+              <span>{specs.length} spec{specs.length > 1 ? "s" : ""} changed{["generating", "building", "fixing"].includes(app.status) ? " → regenerating" : ""}</span>
+              {specs.slice(0, 4).map((id) => (
+                <span key={id} className="font-mono text-[11px] px-1.5 h-[18px] leading-[18px] rounded bg-canvas-soft border border-hairline text-ink hover:bg-hover">{id}</span>
+              ))}
+            </button>
+          )}
         </div>
         {ready && (
           <Button variant="primary" size="sm" onClick={() => navigate(`/app/${app.slug}`)} className="anim-pop">
@@ -63,10 +76,13 @@ export function AppCardView({ app, change }: { app: Pick<App, "slug" | "name" | 
   );
 }
 
-export function AppCard({ payload }: { payload: { slug: string; change?: string } }) {
+export function AppCard({ payload }: { payload: { slug: string; change?: string; specs?: string[]; fromVersion?: number } }) {
   const app = useStore((s) => s.apps.find((a) => a.slug === payload.slug));
   if (!app) return null;
-  return <AppCardView app={app} change={payload.change} />;
+  // An update card whose version has since been built (or superseded) shows as done, not tied to later builds.
+  const done = payload.fromVersion != null && app.version > payload.fromVersion;
+  const shown = done ? { ...app, status: "ready" as const, version: payload.fromVersion! + 1, error: null } : app;
+  return <AppCardView app={shown} change={payload.change} specs={payload.specs} />;
 }
 
 // ---------- Hire card ----------
