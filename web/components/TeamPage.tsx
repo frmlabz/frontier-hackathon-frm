@@ -106,7 +106,7 @@ export function PersonPage({ id }: { id: string }) {
       </div>
       <div className="mb-6">
         <Prop icon={<Briefcase size={14} />} label="Role">{person.role}</Prop>
-        <Prop icon={<Circle size={14} />} label="Status">{ai ? <StatusPill status={person.status} /> : <Badge tone="gray">Human</Badge>}</Prop>
+        {ai ? <Prop icon={<Circle size={14} />} label="Status"><StatusPill status={person.status} /></Prop> : <Prop icon={<Circle size={14} />} label="Type"><Badge tone="gray">Human</Badge></Prop>}
         {ai && (
           <Prop icon={<Plug size={14} />} label="Tools">
             {person.connectors.length ? person.connectors.map((c) => {

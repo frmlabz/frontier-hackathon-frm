@@ -310,7 +310,7 @@ Fresh DB (seeded humans + mock inbox).
 - [x] Team page + Person page with live feed
 
 ### 5 — Polish + rehearsal
-- [ ] Notion fidelity pass on the shell (spacing, hover states, type scale, empty states, transitions)
+- [x] Notion fidelity pass on the shell (spacing, hover states, type scale, empty states, transitions)
 - [ ] Run the demo script end to end on a fresh DB at least 3 times with `CLAUDE_MODEL=claude-opus-5-5`; fix whatever breaks
 - [x] `bun run reset` script: delete `data/`, restart
 
