@@ -73,7 +73,7 @@ ${JSON.stringify(data)}
 Rules:
 - A check passes when \`text\` appears on the page, or inside the table row or card containing \`row\` when row is set. Matching is case-insensitive.
 - Checks must hold for the current data above, which may have changed since the line was written (stock gets delivered). Drop a line that is no longer true for this data; never invert it.
-- Use short texts the app certainly renders: an item name, a column header, a badge word like "Low", a button label. No numbers with units or formatting that might differ.
+- Use short texts the app certainly renders: an item name, a column header, a badge word like "Low", a button label. No digits at all: counts, totals and stat tiles change with the data. \`row\` is always an item name from the data, never a stat or section label.
 - One check per line at most. Skip lines that can't be checked from visible text.`;
   const msg: any = await client.beta.messages.create({
     model: CHECK_MODEL,
@@ -83,7 +83,8 @@ Rules:
   } as any);
   logUsage("checks", msg);
   const text = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-  return (JSON.parse(text).checks as Check[]).filter((c) => c.text?.trim()).slice(0, 6);
+  // Counts and quantities drift with the data and false failures start a rebuild on stage, so digits are dropped.
+  return (JSON.parse(text).checks as Check[]).filter((c) => c.text?.trim() && !/\d/.test(c.text)).slice(0, 6);
 }
 
 /** Mock: `id: X shows "Y".` → row check (kept only while the data still says so); `id: X is listed.` → page check. */
