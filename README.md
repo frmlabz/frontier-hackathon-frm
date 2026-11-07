@@ -25,6 +25,7 @@ The first implementation target is a complete vertical slice:
 | [Scoring and ROI](docs/scoring-and-roi.md) | Deterministic calculations, ranking, assumptions, and reporting rules |
 | [Demo and validation](docs/demo-and-validation.md) | Fictional company, independently checkable scenarios, and demo walkthrough |
 | [Implementation roadmap](docs/roadmap.md) | Ordered milestones, dependencies, open decisions, and deferred work |
+| [Competitive landscape](docs/competitive-landscape.md) | Competitor profiles, funding, overlap, and positioning keywords |
 
 Read the MVP scope first, then the data contracts and demo plan before implementation. The detailed documents narrow the brief into a proposed hackathon build; they do not replace its broader vision.
 
