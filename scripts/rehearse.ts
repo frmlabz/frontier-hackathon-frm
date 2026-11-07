@@ -1,8 +1,9 @@
 // Drives the §12 demo script against a running server over HTTP and checks the outcome of each step.
-// Usage: bun scripts/rehearse.ts [baseUrl] [--step5]
+// Usage: bun scripts/rehearse.ts [baseUrl] [--step5] [--step6]  (step 6 implies 5)
 // Start from a fresh DB (bun run reset). Works for mock and real models; real runs take a few minutes.
 const BASE = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost:3000";
-const STEP5 = process.argv.includes("--step5");
+const STEP6 = process.argv.includes("--step6");
+const STEP5 = STEP6 || process.argv.includes("--step5");
 const t0 = Date.now();
 const log = (...a: any[]) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1).padStart(6)}s]`, ...a);
 
@@ -114,6 +115,29 @@ if (STEP5 && appNow) {
   check(done.version > v, `rebuilt to v${done.version} ${done.error ?? ""}`);
   const kept = await (await fetch(`${BASE}/api/apps/${appNow.slug}/${coll}`)).json();
   check(kept.length >= after.length, `data preserved (${kept.length} rows)`);
+}
+
+// ---- 6. photo import (Stretch B): the CEO adds it to the spec, then the app's ai.extract reads the fixture invoice
+if (STEP6 && appNow) {
+  const v = (await state()).apps.find((a: any) => a.slug === appNow.slug).version;
+  await say("Some suppliers hand me paper invoices. I'd like to drop a photo of one into Inventory and have the stock update.");
+  const done = await until("photo rebuild", (x) => {
+    const a = x.apps.find((y: any) => y.slug === appNow.slug);
+    return a && a.version > v && a.status === "ready" ? a : a?.status === "ready" && a.error ? a : undefined;
+  }, 600);
+  check(done.version > v && /photo|image|picture/i.test(done.spec ?? ""), `rebuilt to v${done.version} with a photo block in the spec`);
+  const file = Buffer.from(await Bun.file(new URL("../fixtures/invoice/invoice-photo.png", import.meta.url)).arrayBuffer()).toString("base64");
+  const t0 = Date.now();
+  const r = await fetch(`${BASE}/api/ai/extract`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ file, mediaType: "image/png", app: appNow.slug, instructions: 'A supplier invoice. Return {"supplier": string, "invoiceNumber": string, "lines": [{"name": string, "quantity": number, "unit": string}]}' }),
+  });
+  const x: any = await r.json();
+  log("  extract:", JSON.stringify(x).slice(0, 300), `(${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+  const tomLine = (x.lines ?? []).find((l: any) => /tomato/i.test(l.name));
+  check(r.ok && x.lines?.length === 4, "extract read 4 lines");
+  check(tomLine?.name === "Tomatoes" && tomLine?.quantity === 8, "tomatoes matched to the existing record (8 kg)");
 }
 
 log(failures ? `FAILED: ${failures} check(s)` : "ALL CHECKS PASSED");

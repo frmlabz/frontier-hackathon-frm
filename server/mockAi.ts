@@ -15,7 +15,9 @@ export async function mockGenerate(app: App, onWriting: () => void): Promise<Bui
   onWriting();
   await sleep(2600);
   const key = existsSync(`${ROOT}/fixtures/apps/${app.slug}/App.tsx`) ? app.slug : /inventor|stock/i.test(app.name) ? "inventory" : "generic";
-  let code = readFileSync(`${ROOT}/fixtures/apps/${key}/App.tsx`, "utf8");
+  // The photo-import variant once the spec asks for it (Stretch B).
+  const variant = key === "inventory" && /photo/i.test(app.spec ?? "") ? "App.photo.tsx" : "App.tsx";
+  let code = readFileSync(`${ROOT}/fixtures/apps/${key}/${variant}`, "utf8");
   const meta = JSON.parse(readFileSync(`${ROOT}/fixtures/apps/${key}/meta.json`, "utf8"));
   if (key === "generic") code = code.replace('emoji="📋" title="Tracker"', `emoji=${JSON.stringify(app.emoji)} title=${JSON.stringify(app.name)}`);
   return { code, collections: meta.collections, seed: meta.seed };
@@ -64,6 +66,11 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   if (job.kind === "event" && has(/gmail connected/, t)) {
     if (assistant) tool("run_employee", { person_id: assistant.id, task: kv.get("pending:gmail") || "Import supplier invoices from Gmail into Inventory." });
     return say(`Gmail is connected. **${assistant?.name ?? "Your assistant"}** is going through your supplier emails now — keep Inventory open and you'll see the stock change.`);
+  }
+  if (inventory && has(/photo|picture|paper invoice|scan/, t)) {
+    const block = "Marko drops a photo of a paper invoice or delivery note. The app reads the lines, shows them for review (each matched to an existing :Ingredient: or marked new), and on confirm adds the delivered quantities to stock and adds new items.";
+    tool("edit_app_spec", { slug: inventory.slug, markdown: addSpecBlock(inventory.spec, "invoice-photo-import", block), summary: "Import paper invoices from a photo" });
+    return say("Good idea — I'm adding **Import invoice photo** to Inventory. Snap the invoice, drop it in, check the lines and the stock updates. Your data stays as it is.");
   }
   if (inventory && has(/column|add .*field|change|update the|rename/, t)) {
     const id = t.toLowerCase().replace(/^(please )?(add|change|update|rename)( an?| the)? /, "").replace(/ (column|field).*$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "change";

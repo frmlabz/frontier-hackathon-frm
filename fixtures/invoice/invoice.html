@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>invoice</title>
+<style>
+  html,body{margin:0;height:100%}
+  body{width:1100px;height:1400px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(ellipse at 30% 20%,#a07a55 0%,#7d5b3c 45%,#5e432c 100%);}
+  body::before{content:"";position:absolute;inset:0;opacity:.25;
+    background:repeating-linear-gradient(92deg,rgba(0,0,0,.18) 0 2px,transparent 2px 23px),repeating-linear-gradient(88deg,rgba(255,255,255,.08) 0 1px,transparent 1px 41px);}
+  .paper{position:relative;width:760px;padding:56px 60px 70px;background:#fbf8f1;transform:rotate(-2.2deg);
+    font-family:"Courier New",Courier,monospace;color:#2a2a2a;font-size:19px;line-height:1.45;
+    box-shadow:0 30px 60px rgba(0,0,0,.45),0 4px 10px rgba(0,0,0,.3);}
+  .paper::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(115deg,rgba(255,255,255,.35) 0%,rgba(255,255,255,0) 35%,rgba(0,0,0,.06) 100%);}
+  h1{font-family:Georgia,serif;font-size:34px;margin:0 0 2px;letter-spacing:.5px}
+  .sub{font-size:15px;color:#555}
+  .meta{display:flex;justify-content:space-between;margin:28px 0 22px;font-size:17px}
+  table{width:100%;border-collapse:collapse;font-size:18px}
+  th{text-align:left;border-bottom:2px solid #333;padding:6px 4px;font-size:15px;text-transform:uppercase;letter-spacing:1px}
+  td{padding:9px 4px;border-bottom:1px dashed #bbb}
+  td.n{text-align:right}
+  .tot{margin-top:18px;text-align:right;font-size:20px;font-weight:bold}
+  .hand{font-family:"Comic Sans MS","Segoe Print",cursive;color:#1d3c8f;font-size:24px;position:absolute;right:70px;bottom:26px;transform:rotate(-6deg)}
+  .stamp{position:absolute;right:90px;top:70px;border:3px solid rgba(190,40,40,.65);color:rgba(190,40,40,.7);
+    font-family:Arial,sans-serif;font-weight:bold;font-size:20px;padding:6px 12px;transform:rotate(12deg);letter-spacing:2px}
+</style></head><body>
+<div class="paper">
+  <div class="stamp">DELIVERED</div>
+  <h1>Adriatic Fresh Produce</h1>
+  <div class="sub">Tržnica 14, Split · OIB 48219935021 · +385 21 555 019</div>
+  <div class="meta">
+    <div><b>DELIVERY NOTE / INVOICE</b><br>No. AFP-2291</div>
+    <div style="text-align:right">Date: 08.11.2026<br>To: Marko's Bistro</div>
+  </div>
+  <table>
+    <tr><th>Item</th><th class="n">Qty</th><th>Unit</th><th class="n">Price</th><th class="n">Total</th></tr>
+    <tr><td>Rajčica San Marzano (tomatoes)</td><td class="n">8</td><td>kg</td><td class="n">2.40</td><td class="n">19.20</td></tr>
+    <tr><td>Limun (lemons)</td><td class="n">4</td><td>kg</td><td class="n">2.10</td><td class="n">8.40</td></tr>
+    <tr><td>Češnjak (garlic)</td><td class="n">2</td><td>kg</td><td class="n">6.50</td><td class="n">13.00</td></tr>
+    <tr><td>Tikvice (zucchini)</td><td class="n">5</td><td>kg</td><td class="n">1.90</td><td class="n">9.50</td></tr>
+  </table>
+  <div class="tot">TOTAL EUR 50.10</div>
+  <div style="margin-top:40px;font-size:15px;color:#555">Received by: ____________________</div>
+  <div class="hand">Ana ✓</div>
+</div>
+</body></html>

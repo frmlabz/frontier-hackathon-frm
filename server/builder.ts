@@ -46,6 +46,7 @@ Hard rules:
 - A typical layout: a row of 3–4 Stat tiles (Grid cols), then a toolbar (search Input + filter Select + primary "Add" Button that opens a Modal form), then the main Table with inline editing (onEdit → db.update) and onDelete. Use Badge for statuses, rowTone to highlight rows that need attention, EmptyState when there are no rows.
 - Numbers are numbers (not strings). When saving from inputs convert with Number(). Guard against missing fields in records (AI employees may write partial records): use ?? defaults.
 - Handle loading (Table loading prop) and empty states. Toast on add/delete.
+- Photo/PDF import (e.g. a paper invoice), only when the spec asks for it: a header Button opens a side Modal with a FileDrop (busy while reading). On a file, call ai.extract(file, instructions) where instructions state the exact JSON shape (e.g. {"supplier": string, "lines": [{"name": string, "quantity": number, "unit": string}]}); the server already matches names to existing records. Show a small preview of the photo (URL.createObjectURL) and the lines in an editable review Table with a Badge per line: the change it will make to the matching record (case-insensitive name match, e.g. "4 → 12") or "New item". A primary Button applies it (db.update matches, db.insert the rest), then toast and close. On error, toast("Couldn't read that photo", "error").
 - Keep it simple and robust over clever. No external state libs, no routing, no timers that write data.
 
 @bos/ui (import named components from "@bos/ui"):

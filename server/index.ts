@@ -10,6 +10,7 @@ import { dataChangedSince, getChecks, prepareChecks, recordResults } from "./che
 import { specChangeIds } from "./spec";
 import { applySpecEdit, enqueue, isBusy } from "./ceo";
 import { MODEL } from "./claude";
+import { extract } from "./extract";
 
 const ROOT = resolve(import.meta.dir, "..");
 const json = (data: any, status = 200) => Response.json(data, { status });
@@ -80,6 +81,18 @@ const server = Bun.serve({
         publish({ type: "chat.item", item });
         enqueue({ kind: "event", text: `[event] Gmail connected as ${account}.${pending ? ` Pending task: ${pending}` : ""}` });
         return json({ ok: true, account });
+      },
+    },
+
+    // Stretch B: apps read photos/PDFs (e.g. a paper invoice) into JSON.
+    "/api/ai/extract": {
+      POST: async (req) => {
+        try {
+          return json(await extract(await body(req)));
+        } catch (e: any) {
+          console.warn("[extract]", e?.message ?? e);
+          return json({ error: "Couldn't read that file" }, 502);
+        }
       },
     },
 

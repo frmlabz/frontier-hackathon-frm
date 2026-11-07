@@ -122,7 +122,7 @@ GET    /api/apps/:slug/:coll              list
 POST   /api/apps/:slug/:coll {data}       insert          → records.changed
 PATCH  /api/apps/:slug/:coll/:id {patch}  shallow merge   → records.changed
 DELETE /api/apps/:slug/:coll/:id                          → records.changed
-POST   /api/ai/extract {file, mediaType, instructions}  → JSON (Claude vision)   [Stretch]
+POST   /api/ai/extract {file, mediaType, instructions, app}  → JSON (Claude vision)   [Stretch]
 POST   /api/apps/:slug/error {message, stack}           → auto-fix               [P1]
 POST   /api/connectors/gmail/connect {account}  → store connector → state.changed → enqueue CEO event
 ```
@@ -270,6 +270,7 @@ Fresh DB (seeded humans + mock inbox).
 4. "I need someone to pull supplier invoices from Gmail and update stock." The CEO proposes and hires 🛒 **Purchasing Assistant**, then asks you to connect Gmail. You click Connect, and a moment later it shows as connected. The CEO runs the employee. The activity feed streams, and the Inventory quantities change live in the iframe.
 5. [P1] "Add a supplier column to Inventory." The app rebuilds to v2 and the data is preserved.
 6. [Stretch, last] Drop an invoice photo into Inventory and the stock updates.
+   *As built:* "Some suppliers hand me paper invoices. I'd like to drop a photo of one into Inventory and have the stock update." The CEO adds an `invoice-photo-import` block to the spec and Inventory regenerates with an **Import invoice photo** button. Drag `fixtures/invoice/invoice-photo.png` (a photo of a paper delivery note from Adriatic Fresh Produce, with Croatian item names) onto the drop zone. One vision call reads it, and the app's existing record names go along, so "Rajčica San Marzano" comes back as Tomatoes. The review table shows each line as "16 → 24" or "New item". **Update stock** applies it.
 
 ## 13. Checklist (in order)
 
@@ -325,7 +326,7 @@ Fresh DB (seeded humans + mock inbox).
 - [x] Acceptance checks from the spec run after each build; failures trigger one auto-fix
 
 ### Stretch B (only after A)
-- [ ] `/api/ai/extract` + `FileDrop` invoice photo import (OCR)
+- [x] `/api/ai/extract` + `FileDrop` invoice photo import (OCR)
 
 ### Cut
 Dashboard, Connectors page, real Google OAuth, Google Sheets, public apps, team invites, prompt caching, streaming code line counts, right-side chat panel.
