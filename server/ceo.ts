@@ -6,7 +6,7 @@ import {
   listApps, listConnectors, listKnowledge, listPeople, countRecords, patchApp, upsertKnowledge,
 } from "./db";
 import { isBuilding, startBuild } from "./builder";
-import { SPEC_FORMAT, addSpecBlock, specChangeIds, writeSpec } from "./spec";
+import { SPEC_FORMAT, diffCount, pendingSpecChanges, stripFrontmatter, writeSpec } from "./spec";
 import { isRunning, startEmployee } from "./employee";
 
 export type Job = { kind: "user" | "event"; text: string };
@@ -22,6 +22,7 @@ How you work:
 - Turn order: call your tools first, then write your message to Marko at the very end of the turn. Do not narrate before or between tool calls. Cards for your tool calls (pages, app setup, hires, Connect Gmail) appear just above your message, so never say "below".
 - Interview Marko to understand the business. As soon as you learn something, write it down with upsert_knowledge_page — several pages over the conversation (e.g. company-profile 🏢, suppliers 🚚, pain-points 🔥, team 👥, menu 🍽️, daily-workflow ⏱️). Rewrite a page (same slug) when you learn more. Pages are concise Notion-style docs: short headings, bullets, tables where useful. Never invent facts Marko didn't give you; leave gaps out.
 - Only propose an app after Marko has described a concrete pain in his own words. Propose it in one sentence (name + what it does), ask if he wants it, and wait. Name apps plainly after what they hold, e.g. **Inventory** for stock, **Staff Schedule**, **Supplier Directory**. Only an explicit yes ("yes", "do it", "build that") counts; new details are not a yes, so fold them into the proposal and ask again. Then call build_app with the app's spec (format below). The spec is the source of truth: the app is generated from it, and Marko can read and edit it. Be specific: every record and field with units in Definitions; one short ### block per behaviour (e.g. what needs attention, like low stock); Starter data with the concrete items, suppliers and numbers Marko mentioned so the app starts with his real data. Where he gave no numbers, Starter data asks for realistic example values (e.g. current stock and minimum levels), with the items he runs out of starting below their minimum, so the app is useful on day one. This is starter data in an app he can edit, not a fact for Knowledge. Acceptance has one checkable line per important block, phrased against the starter data.
+- To change an existing app (a new column, filter, view or rule), edit its spec with edit_app_spec: pass the full spec from <workspace> with your change made. Copy every block you aren't changing exactly, keep block ids stable, add a new ### block for a new behaviour (or edit the block it belongs to), update Definitions for new fields and add an Acceptance line for it. The app regenerates from the spec and keeps its data.
 - Apps take about a minute to set up; Marko watches progress in a card. Don't wait for it or promise a time.
 - When Marko needs ongoing work done (e.g. reading supplier emails) and the app it feeds exists, propose an AI employee and hire them with hire_employee once he agrees (a direct request counts as agreement). Instructions must name the exact app slug and collection to update and how to match items (by name, case-insensitive; add new items when missing).
 - If an employee needs Gmail and it isn't connected, call request_connector with the task to run afterwards. When you receive "[event] Gmail connected …", immediately call run_employee with the pending task, then tell Marko in one sentence that the work has started.
@@ -65,17 +66,17 @@ const TOOLS = [
     },
   },
   {
-    name: "update_app",
-    description: "Change an existing app (adds features or fields; data is kept). Runs in the background.",
+    name: "edit_app_spec",
+    description: "Change an existing app by rewriting its spec. The app regenerates from the spec in the background; data is kept.",
     strict: true,
     input_schema: {
       type: "object",
       properties: {
         slug: { type: "string" },
-        change_request: { type: "string", description: "Detailed change for the app builder" },
+        markdown: { type: "string", description: "The full updated spec (same format), with unchanged blocks copied exactly" },
         summary: { type: "string", description: "What Marko sees on the card, plain words, max 8 words, e.g. Added a Reorder note column" },
       },
-      required: ["slug", "change_request", "summary"],
+      required: ["slug", "markdown", "summary"],
       additionalProperties: false,
     },
   },
@@ -138,6 +139,7 @@ function stateBlock() {
   for (const a of apps) {
     const colls = (a.schema ?? []).map((c) => `${c.name}[${countRecords(a.slug, c.name)} records](${c.fields.map((f) => f.name + (f.unit ? ` ${f.unit}` : "")).join(", ")})`).join("; ");
     lines.push(`- ${a.emoji} ${a.name} · slug=${a.slug} · status=${a.status}${a.version ? ` v${a.version}` : ""}${colls ? ` · collections: ${colls}` : ""}`);
+    if (a.spec) lines.push(`  <spec slug="${a.slug}">\n${stripFrontmatter(a.spec).trim()}\n  </spec>`);
   }
   lines.push(`\nPeople:`);
   for (const p of people) lines.push(`- ${p.kind === "ai" ? "AI" : "human"} · id=${p.id} · ${p.name} · ${p.role}${p.kind === "ai" ? ` · status=${p.status} · connectors=${p.connectors.join(",") || "none"}` : ""}`);
@@ -151,6 +153,30 @@ function chat(kind: string, payload: any) {
   const item = insertChatItem(kind, payload);
   publish({ type: "chat.item", item });
   return item;
+}
+
+/** Saves a new spec and regenerates the app if any block that drives the code changed. Used by the CEO tool and the Spec tab. */
+export function applySpecEdit(slug: string, markdown: string, summary: string): { text: string; isError?: boolean; building?: boolean } {
+  const app = getApp(slug);
+  if (!app) return { text: `No app with slug ${slug}.`, isError: true };
+  if (isBuilding(app.slug)) return { text: "That app is regenerating right now; try again when it's ready.", isError: true, building: true };
+  const spec = stripFrontmatter(markdown).trim();
+  if (!spec) return { text: "The spec can't be empty.", isError: true };
+  const textChanged = spec !== stripFrontmatter(app.spec).trim();
+  const updated = textChanged ? patchApp(app.slug, { spec }) : app;
+  if (textChanged) {
+    writeSpec(updated);
+    publish({ type: "state.changed" });
+  }
+  // Rebuild when the spec differs from what the live version was built from (so a failed change can be retried).
+  // diff is null when nothing was built from a spec yet.
+  const diff = pendingSpecChanges(updated);
+  const specs = diff ? [...diff.added, ...diff.changed, ...diff.removed] : [];
+  if (diff ? !diffCount(diff) : !textChanged && app.status !== "failed")
+    return { text: textChanged ? "Saved. No block that drives the app changed, so it wasn't rebuilt." : "The spec is unchanged and the app is up to date." };
+  chat("app_card", { slug: app.slug, change: summary, fromVersion: app.version, specs });
+  startBuild(app.slug);
+  return { text: `Regenerating ${app.name} from the updated spec ${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept.` };
 }
 
 export function runTool(name: string, input: any): { text: string; isError?: boolean } {
@@ -170,18 +196,8 @@ export function runTool(name: string, input: any): { text: string; isError?: boo
       startBuild(app.slug);
       return { text: `Setup started for ${app.emoji} ${app.name} (slug ${app.slug}). Marko sees the progress card; it appears in the sidebar when ready.` };
     }
-    case "update_app": {
-      const app = getApp(input.slug);
-      if (!app) return { text: `No app with slug ${input.slug}.`, isError: true };
-      if (isBuilding(app.slug)) return { text: "That app is being set up right now; try again when it's ready.", isError: true };
-      const updated = patchApp(app.slug, { spec: addSpecBlock(app.spec, `change-v${app.version + 1}`, input.change_request) });
-      writeSpec(updated);
-      publish({ type: "state.changed" });
-      const specs = specChangeIds(updated);
-      chat("app_card", { slug: app.slug, change: input.summary || input.change_request, fromVersion: app.version, specs });
-      startBuild(app.slug, { changeRequest: input.change_request });
-      return { text: `Update started for ${app.name}. Existing data is kept.` };
-    }
+    case "edit_app_spec":
+      return applySpecEdit(input.slug, input.markdown, input.summary);
     case "hire_employee": {
       const p = createAiPerson(input);
       publish({ type: "state.changed" });

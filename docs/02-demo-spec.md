@@ -191,8 +191,8 @@ Build card steps shown to the user are honest status changes, not invented ones:
 | Tool | Effect | Returns |
 |---|---|---|
 | `upsert_knowledge_page({slug, emoji, title, markdown})` | creates/rewrites one Knowledge page (call it as soon as you learn something; several pages per interview) | ok |
-| `build_app({name, emoji, description, requirements})` | creates the app row + `app_card`, starts the builder async | "build started" |
-| `update_app({slug, change_request})` [P1] | rebuilds async | "rebuild started" |
+| `build_app({name, emoji, description, spec})` | creates the app row + `app_card`, starts the builder async | "build started" |
+| `edit_app_spec({slug, markdown, summary})` [P1; replaced `update_app` in Stretch A] | saves the full rewritten spec; rebuilds async if a block that drives the code changed | "regenerating" or "unchanged" |
 | `hire_employee({name, role, emoji, color, instructions, connectors})` | AI person + `hire_card` | person id |
 | `request_connector({provider:"gmail", reason, pending_task})` | `connector_card` with a Connect button. Stores `pending_task` | "waiting for user" |
 | `run_employee({person_id, task})` | starts an employee run async. Errors if a required connector is missing | "started" or error |
@@ -321,7 +321,7 @@ Fresh DB (seeded humans + mock inbox).
 ### Stretch A — Regenerative apps (§15), one commit per step, tag `demo-core` first
 - [x] Spec file per app + Spec tab on the App page
 - [x] Build from spec; per-block hashes; "N specs changed" in the build card
-- [ ] `edit_app_spec` CEO tool + inline spec editing → regenerate
+- [x] `edit_app_spec` CEO tool + inline spec editing → regenerate
 - [ ] Acceptance checks from the spec run after each build; failures trigger one auto-fix
 
 ### Stretch B (only after A)

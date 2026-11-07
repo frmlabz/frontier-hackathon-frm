@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { getKnowledge, listApps, listPeople, listRecords, kv, type App, type Person } from "./db";
 import type { BuildOutput } from "./builder";
 import type { Job } from "./ceo";
+import { addSpecBlock } from "./spec";
 
 const ROOT = resolve(import.meta.dir, "..");
 const sleep = (ms: number) => Bun.sleep(ms);
@@ -65,7 +66,8 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
     return say(`Gmail is connected. **${assistant?.name ?? "Your assistant"}** is going through your supplier emails now — keep Inventory open and you'll see the stock change.`);
   }
   if (inventory && has(/column|add .*field|change|update the|rename/, t)) {
-    tool("update_app", { slug: inventory.slug, change_request: t, summary: t.replace(/\.$/, "") });
+    const id = t.toLowerCase().replace(/^(please )?(add|change|update|rename)( an?| the)? /, "").replace(/ (column|field).*$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "change";
+    tool("edit_app_spec", { slug: inventory.slug, markdown: addSpecBlock(inventory.spec, id, t), summary: t.replace(/\.$/, "") });
     return say("On it — I'm updating **Inventory**. Your data stays exactly as it is.");
   }
   if (has(/hire|assistant|someone|employee|pull .*invoice/, t) && !assistant) {

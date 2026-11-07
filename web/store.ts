@@ -189,4 +189,12 @@ export async function connectGmail() {
   return r.ok;
 }
 
+/** Stretch A: save an edited spec; the server regenerates the app if a block that drives it changed. */
+export async function saveSpec(slug: string, markdown: string): Promise<{ ok: boolean; message: string }> {
+  const r = await fetch(`/api/apps/${slug}/spec`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown }) }).catch(() => null);
+  const j = await r?.json().catch(() => null);
+  if (r?.ok) await refresh();
+  return { ok: !!r?.ok, message: j?.message ?? "Couldn't save the spec." };
+}
+
 export { resyncChat };

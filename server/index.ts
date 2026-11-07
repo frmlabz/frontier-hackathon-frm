@@ -7,7 +7,7 @@ import {
 } from "./db";
 import { autoFix, bundle, startBuild } from "./builder";
 import { specChangeIds } from "./spec";
-import { enqueue, isBusy } from "./ceo";
+import { applySpecEdit, enqueue, isBusy } from "./ceo";
 import { MODEL } from "./claude";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -94,6 +94,15 @@ const server = Bun.serve({
         publish({ type: "state.changed" });
         startBuild(app.slug);
         return json(app, 202);
+      },
+    },
+
+    // Stretch A: Marko edits the spec on the Spec tab; the app regenerates from it.
+    "/api/apps/:slug/spec": {
+      PUT: async (req) => {
+        const { markdown = "" } = await body(req);
+        const r = applySpecEdit(req.params.slug, String(markdown), "Edited the spec");
+        return json({ ok: !r.isError, message: r.text }, r.building ? 409 : r.isError ? 400 : 200);
       },
     },
 
