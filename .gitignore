@@ -1,5 +1,6 @@
 .devbox/
 node_modules/
 data/
+logs/
 .env
 *.swp

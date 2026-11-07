@@ -2,14 +2,18 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { seedEmails, seedHumans } from "./seed";
 
-mkdirSync("data/apps", { recursive: true });
-export const db = new Database("data/bos.sqlite", { create: true });
+// Mock mode gets its own data dir so scripted runs never leak into the real demo DB.
+export const MOCK = process.env.BOS_MOCK === "1";
+export const DATA_DIR = process.env.BOS_DATA_DIR ?? (MOCK ? "data/mock" : "data");
+
+mkdirSync(`${DATA_DIR}/apps`, { recursive: true });
+export const db = new Database(`${DATA_DIR}/bos.sqlite`, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, role TEXT, content_json TEXT);
 CREATE TABLE IF NOT EXISTS chat_items(id INTEGER PRIMARY KEY, kind TEXT, payload_json TEXT, created_at INTEGER);
-CREATE TABLE IF NOT EXISTS company(id INTEGER PRIMARY KEY CHECK(id=1), markdown TEXT);
+CREATE TABLE IF NOT EXISTS knowledge_pages(slug TEXT PRIMARY KEY, emoji TEXT, title TEXT, markdown TEXT, position INTEGER, updated_at INTEGER);
 CREATE TABLE IF NOT EXISTS apps(slug TEXT PRIMARY KEY, name TEXT, emoji TEXT, description TEXT,
   requirements TEXT, schema_json TEXT, status TEXT, version INTEGER, step TEXT, error TEXT, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS records(app TEXT, collection TEXT, id TEXT, data_json TEXT, created_at INTEGER, updated_at INTEGER,
@@ -25,28 +29,32 @@ CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT);
 
 // ---------- types ----------
 export type ChatItem = { id: number; kind: string; payload: any; createdAt: number };
+export type Field = { name: string; type: "text" | "number" | "date" | "boolean"; unit?: string | null };
+export type Collection = { name: string; fields: Field[] };
 export type App = {
   slug: string; name: string; emoji: string; description: string; requirements: string;
-  schema: any; status: string; version: number; step: string; error: string | null; createdAt: number;
+  schema: Collection[] | null; status: string; version: number; step: string; error: string | null; createdAt: number;
 };
 export type Person = {
   id: string; kind: "human" | "ai"; name: string; role: string; emoji: string; color: string;
   instructions: string; connectors: string[]; status: string; createdAt: number;
 };
+export type KnowledgePage = { slug: string; emoji: string; title: string; markdown: string; position: number; updatedAt: number };
 export type Rec = { id: string; createdAt: number; updatedAt: number; [k: string]: any };
 
 const now = () => Date.now();
+export const slugify = (s: string, fallback: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || fallback;
 
 // ---------- seed ----------
 if ((db.query("SELECT COUNT(*) c FROM people").get() as any).c === 0) {
   const ins = db.query("INSERT INTO people VALUES (?,?,?,?,?,?,?,?,?,?)");
-  for (const h of seedHumans) ins.run(h.id, "human", h.name, h.role, h.emoji, h.color, "", "[]", "idle", now());
+  seedHumans.forEach((h, i) => ins.run(h.id, "human", h.name, h.role, h.emoji, h.color, "", "[]", "idle", now() + i));
 }
 if ((db.query("SELECT COUNT(*) c FROM emails").get() as any).c === 0) {
   const ins = db.query("INSERT INTO emails VALUES (?,?,?,?,?,?)");
   for (const e of seedEmails) ins.run(e.id, e.fromName, e.fromAddr, e.subject, e.body, e.receivedAt);
 }
-db.query("INSERT OR IGNORE INTO company VALUES (1, '')").run();
 
 // ---------- kv ----------
 export const kv = {
@@ -55,7 +63,14 @@ export const kv = {
 };
 
 // ---------- messages (exact Anthropic history, append-only) ----------
-export function appendMessage(role: "user" | "assistant", content: any) {
+export function appendMessage(role: "user" | "assistant", content: any[]) {
+  // A turn that failed mid-way can leave a trailing user message with no reply. Nothing references it yet,
+  // so the next user content joins it instead of creating two user messages in a row.
+  const last = db.query("SELECT id, role, content_json FROM messages ORDER BY id DESC LIMIT 1").get() as any;
+  if (last && last.role === "user" && role === "user") {
+    db.query("UPDATE messages SET content_json=? WHERE id=?").run(JSON.stringify([...JSON.parse(last.content_json), ...content]), last.id);
+    return;
+  }
   db.query("INSERT INTO messages(role, content_json) VALUES (?,?)").run(role, JSON.stringify(content));
 }
 export function getMessages(): { role: "user" | "assistant"; content: any }[] {
@@ -71,11 +86,32 @@ export function insertChatItem(kind: string, payload: any): ChatItem {
   const r = db.query("INSERT INTO chat_items(kind, payload_json, created_at) VALUES (?,?,?) RETURNING *").get(kind, JSON.stringify(payload), now());
   return toItem(r);
 }
+export function patchChatItem(id: number, payload: any): ChatItem {
+  db.query("UPDATE chat_items SET payload_json=? WHERE id=?").run(JSON.stringify(payload), id);
+  return toItem(db.query("SELECT * FROM chat_items WHERE id=?").get(id));
+}
 export const listChatItems = () => (db.query("SELECT * FROM chat_items ORDER BY id").all() as any[]).map(toItem);
 
-// ---------- company ----------
-export const getCompany = () => (db.query("SELECT markdown FROM company WHERE id=1").get() as any).markdown as string;
-export const setCompany = (md: string) => db.query("UPDATE company SET markdown=? WHERE id=1").run(md);
+// ---------- knowledge ----------
+const toPage = (r: any): KnowledgePage => ({
+  slug: r.slug, emoji: r.emoji, title: r.title, markdown: r.markdown, position: r.position, updatedAt: r.updated_at,
+});
+export const listKnowledge = () => (db.query("SELECT * FROM knowledge_pages ORDER BY position").all() as any[]).map(toPage);
+export const getKnowledge = (slug: string) => {
+  const r = db.query("SELECT * FROM knowledge_pages WHERE slug=?").get(slug);
+  return r ? toPage(r) : null;
+};
+export function upsertKnowledge(p: { slug: string; emoji: string; title: string; markdown: string }) {
+  const slug = slugify(p.slug || p.title, "page");
+  const cur = getKnowledge(slug);
+  if (cur) {
+    db.query("UPDATE knowledge_pages SET emoji=?, title=?, markdown=?, updated_at=? WHERE slug=?").run(p.emoji, p.title, p.markdown, now(), slug);
+  } else {
+    const pos = ((db.query("SELECT MAX(position) m FROM knowledge_pages").get() as any).m ?? -1) + 1;
+    db.query("INSERT INTO knowledge_pages VALUES (?,?,?,?,?,?)").run(slug, p.emoji, p.title, p.markdown, pos, now());
+  }
+  return { page: getKnowledge(slug)!, created: !cur };
+}
 
 // ---------- apps ----------
 const toApp = (r: any): App => ({
@@ -89,7 +125,7 @@ export const getApp = (slug: string) => {
   return r ? toApp(r) : null;
 };
 export function createApp(a: { name: string; emoji: string; description: string; requirements: string }): App {
-  const base = a.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "app";
+  const base = slugify(a.name, "app");
   let slug = base;
   for (let i = 2; getApp(slug); i++) slug = `${base}-${i}`;
   db.query("INSERT INTO apps VALUES (?,?,?,?,?,?,?,?,?,?,?)").run(
@@ -120,9 +156,8 @@ function clean(data: any) {
 }
 export function insertRecord(app: string, coll: string, data: any, id?: string): Rec {
   const rid = id || data?.id || crypto.randomUUID();
-  const existing = getRecord(app, coll, rid);
-  if (existing) return updateRecord(app, coll, rid, data)!;
-  db.query("INSERT INTO records VALUES (?,?,?,?,?,?)").run(app, coll, String(rid), JSON.stringify(clean(data)), now(), now());
+  const t = now();
+  db.query("INSERT INTO records VALUES (?,?,?,?,?,?)").run(app, coll, String(rid), JSON.stringify(clean(data)), t, t);
   return getRecord(app, coll, String(rid))!;
 }
 export function updateRecord(app: string, coll: string, id: string, patch: any): Rec | null {
@@ -134,19 +169,21 @@ export function updateRecord(app: string, coll: string, id: string, patch: any):
 }
 export const deleteRecord = (app: string, coll: string, id: string) =>
   db.query("DELETE FROM records WHERE app=? AND collection=? AND id=?").run(app, coll, id);
+export const countRecords = (app: string, coll: string) =>
+  (db.query("SELECT COUNT(*) c FROM records WHERE app=? AND collection=?").get(app, coll) as any).c as number;
 
 // ---------- people ----------
 const toPerson = (r: any): Person => ({
   id: r.id, kind: r.kind, name: r.name, role: r.role, emoji: r.emoji, color: r.color, instructions: r.instructions,
   connectors: JSON.parse(r.connectors_json || "[]"), status: r.status, createdAt: r.created_at,
 });
-export const listPeople = () => (db.query("SELECT * FROM people ORDER BY kind DESC, created_at").all() as any[]).map(toPerson);
+export const listPeople = () => (db.query("SELECT * FROM people ORDER BY kind ASC, created_at").all() as any[]).map(toPerson);
 export const getPerson = (id: string) => {
   const r = db.query("SELECT * FROM people WHERE id=?").get(id);
   return r ? toPerson(r) : null;
 };
 export function createAiPerson(p: { name: string; role: string; emoji: string; color: string; instructions: string; connectors: string[] }) {
-  const base = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "employee";
+  const base = slugify(p.name, "employee");
   let id = base;
   for (let i = 2; getPerson(id); i++) id = `${base}-${i}`;
   db.query("INSERT INTO people VALUES (?,?,?,?,?,?,?,?,?,?)").run(
@@ -157,13 +194,15 @@ export function createAiPerson(p: { name: string; role: string; emoji: string; c
 export const setPersonStatus = (id: string, status: string) => db.query("UPDATE people SET status=? WHERE id=?").run(status, id);
 
 // ---------- activity ----------
-export function addActivity(personId: string, text: string) {
-  return db.query("INSERT INTO activity(person_id, text, created_at) VALUES (?,?,?) RETURNING *").get(personId, text, now()) as any;
+export type Activity = { id: number; personId: string; text: string; createdAt: number };
+export function addActivity(personId: string, text: string): Activity {
+  const r = db.query("INSERT INTO activity(person_id, text, created_at) VALUES (?,?,?) RETURNING *").get(personId, text, now()) as any;
+  return { id: r.id, personId: r.person_id, text: r.text, createdAt: r.created_at };
 }
 export const listActivity = () =>
   (db.query("SELECT * FROM activity ORDER BY id DESC LIMIT 500").all() as any[]).map((r) => ({
     id: r.id, personId: r.person_id, text: r.text, createdAt: r.created_at,
-  }));
+  })) as Activity[];
 
 // ---------- connectors ----------
 export const listConnectors = () =>
@@ -183,3 +222,15 @@ export const getEmail = (id: string) => {
 export const isProcessed = (id: string) => !!db.query("SELECT 1 FROM processed_emails WHERE message_id=?").get(id);
 export const markProcessed = (id: string, personId: string) =>
   db.query("INSERT OR IGNORE INTO processed_emails VALUES (?,?)").run(id, personId);
+
+export function snapshot() {
+  return {
+    mock: MOCK,
+    knowledge: listKnowledge(),
+    apps: listApps(),
+    people: listPeople(),
+    connectors: listConnectors(),
+    activity: listActivity(),
+    chat: listChatItems(),
+  };
+}
