@@ -59,6 +59,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .bos-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
 .bos-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
 .bos-row:last-child, .bos-grid > .bos-row { margin-bottom: 0; }
+.bos-table td .bos-row { flex-wrap: nowrap !important; gap: 6px; margin: 0; }  /* keep cells single-line even when a render() wraps content in a Row */
 .bos-field + .bos-field, .bos-field + .bos-row, .bos-formrow + .bos-field { margin-top: 12px; }
 .bos-grid { display: grid; gap: 12px; margin: 0 0 16px; }
 .bos-grid-1 { grid-template-columns: 1fr; }

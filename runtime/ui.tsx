@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 // @api-start
 export type Tone = "gray" | "blue" | "green" | "yellow" | "orange" | "red" | "purple" | "pink" | "brown";
 
+/** width defaults to "wide" (Notion full-page database width). */
 export type PageProps = { children: ReactNode; width?: "normal" | "wide" | "full" };
 export type HeaderProps = { emoji?: string; title: string; subtitle?: string; actions?: ReactNode };
 export type SectionProps = { title?: string; subtitle?: string; actions?: ReactNode; children: ReactNode };
@@ -102,7 +103,7 @@ const fmtNum = (v: any) => {
 };
 
 // ---------- layout ----------
-export function Page({ children, width = "normal" }: PageProps) {
+export function Page({ children, width = "wide" }: PageProps) {
   return <div className={cx("bos-page", width === "wide" && "bos-page-wide", width === "full" && "bos-page-full")}>{children}</div>;
 }
 export function Header({ emoji, title, subtitle, actions }: HeaderProps) {
