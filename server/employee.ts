@@ -70,9 +70,11 @@ const fmt = (v: any) => (typeof v === "number" ? (Number.isInteger(v) ? String(v
 
 function describeChange(before: any, after: any, unitOf: (k: string) => string, full: any = after) {
   const parts: string[] = [];
-  for (const k of Object.keys(after)) {
-    if (["id", "createdAt", "updatedAt"].includes(k)) continue;
-    if (JSON.stringify(before?.[k]) === JSON.stringify(after[k])) continue;
+  let keys = Object.keys(after).filter((k) => !["id", "createdAt", "updatedAt"].includes(k) && JSON.stringify(before?.[k]) !== JSON.stringify(after[k]));
+  // Lead with the numbers (stock 4 → 16 kg); notes and dates only when nothing numeric changed, and never long text.
+  const numeric = keys.filter((k) => typeof after[k] === "number");
+  keys = numeric.length ? numeric : keys.filter((k) => !(typeof after[k] === "string" && after[k].length > 30));
+  for (const k of keys) {
     const u = unitOf(k) || (typeof full?.unit === "string" && /qty|quantity|stock|on_hand|minimum|par/i.test(k) ? full.unit : "");
     parts.push(before?.[k] === undefined ? `${k} ${fmt(after[k])}${u ? " " + u : ""}` : `${k} ${fmt(before[k])} → ${fmt(after[k])}${u ? " " + u : ""}`);
   }
