@@ -25,7 +25,7 @@ export function AppCardView({ app, change }: { app: Pick<App, "slug" | "name" | 
             <span className="font-semibold text-[15px] text-ink-strong truncate">{title}</span>
             {ready && app.version > 1 && <Badge tone="blue">v{app.version}</Badge>}
           </div>
-          <div className="text-[13px] text-muted truncate">{change ? `“${change}”` : app.description}</div>
+          <div className="text-[13px] text-muted truncate">{change || app.description}</div>
         </div>
         {ready && (
           <Button variant="primary" size="sm" onClick={() => navigate(`/app/${app.slug}`)} className="anim-pop">
@@ -154,6 +154,8 @@ export function ConnectorCard({ payload }: { payload: { provider: string; reason
 // ---------- Event line ----------
 export function EventLine({ payload }: { payload: { icon?: string; text: string; link?: string; linkText?: string; personId?: string } }) {
   const person = useStore((s) => (payload.personId ? s.people.find((p) => p.id === payload.personId) : undefined));
+  const [open, setOpen] = useState(false);
+  const long = !!person && payload.text.length > 240;
   const icon =
     payload.icon === "bot" && person ? <PersonAvatar person={person} size={18} /> :
     payload.icon === "page" ? <FileText size={14} /> :
@@ -161,7 +163,7 @@ export function EventLine({ payload }: { payload: { icon?: string; text: string;
   return (
     <div className={cx("flex items-start gap-2 my-1.5 text-[13px] text-muted anim-fade-up", person && "my-3 py-2 px-3 rounded-lg bg-canvas-soft")}>
       <span className="h-[19px] flex items-center shrink-0 text-faint">{icon}</span>
-      <span className="leading-[19px]">
+      <span className={cx("leading-[19px] min-w-0", long && !open && "line-clamp-3 cursor-pointer")} onClick={long && !open ? () => setOpen(true) : undefined} title={long && !open ? "Show all" : undefined}>
         {person && <Link to={`/people/${person.id}`} className="font-medium text-ink hover:underline">{person.name}</Link>}
         {person && " · "}
         {payload.text}

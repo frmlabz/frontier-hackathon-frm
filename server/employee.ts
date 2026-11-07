@@ -163,10 +163,11 @@ How to work:
 - Invoice quantities ADD to current stock. Convert units to the app's unit (e.g. 4 tins × 5 L = 20 L, 500 g = 0.5 kg). Numbers are numbers.
 - Process each email exactly once: apply it, then mark_processed.
 - Use log sparingly for decisions the owner should see (e.g. "Skipped the electricity bill — not stock"). Your reads and record changes are already shown.
-- Finish with ONE plain sentence summarizing what you did, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble.
 
 Business knowledge:
-${knowledge}`;
+${knowledge}
+
+Your final message is posted in the owner's chat, so it overrides any "summarize" instruction above: ONE plain sentence, at most 35 words, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble. Anything else he should know goes in a short log line instead.`;
 }
 
 export function startEmployee(personId: string, task: string) {

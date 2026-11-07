@@ -65,7 +65,7 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
     return say(`Gmail is connected. **${assistant?.name ?? "Your assistant"}** is going through your supplier emails now — keep Inventory open and you'll see the stock change.`);
   }
   if (inventory && has(/column|add .*field|change|update the|rename/, t)) {
-    tool("update_app", { slug: inventory.slug, change_request: t });
+    tool("update_app", { slug: inventory.slug, change_request: t, summary: t.replace(/\.$/, "") });
     return say("On it — I'm updating **Inventory**. Your data stays exactly as it is.");
   }
   if (has(/hire|assistant|someone|employee|pull .*invoice/, t) && !assistant) {
