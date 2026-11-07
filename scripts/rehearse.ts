@@ -56,7 +56,8 @@ await say("Suppliers: Adriatic Fresh Produce for veg, Kalamata Imports for olive
 s = await say("Biggest pain is stock. We track it in a paper notebook, nobody updates it, and we keep running out of tomatoes and feta. We use tomatoes, feta, olive oil, flour, lemons, chicken, lamb, basil.");
 check(s.knowledge.length >= 2, `knowledge pages created (${s.knowledge.map((k: any) => k.title).join(", ")})`);
 
-// ---- 3. inventory app
+// ---- 3. inventory app (§12: the CEO proposes it and waits for a yes)
+check(!inv(s), "CEO proposed the app and waited for a yes");
 if (!inv(s)) s = await say("Yes, build that.");
 if (!inv(s)) s = await say("Yes please, build the Inventory app now.");
 const app = inv(s);

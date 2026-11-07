@@ -143,6 +143,7 @@ function userPrompt(app: App, reason: BuildReason, code: string | null) {
   }
   if (reason.changeRequest) parts.push(`<change_request>\n${reason.changeRequest}\n</change_request>`);
   if (reason.error) parts.push(`<runtime_error>\nThe current version crashed in the browser with:\n${reason.error}\nFix the cause.\n</runtime_error>`);
+  if (!code) parts.push(`Today is ${new Date().toISOString().slice(0, 10)}. Seed dates must be within the last two weeks.`);
   parts.push(code ? "Return the full updated app." : "Write the app.");
   return parts.join("\n\n");
 }
