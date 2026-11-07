@@ -5,7 +5,7 @@ import { CeoMessage, Composer } from "./HubPage";
 import { Button, PageChrome, PageTitle } from "./common";
 
 const app = (over: Partial<App>): App => ({
-  slug: "inventory", name: "Inventory", emoji: "🥫", description: "Track ingredient stock levels", requirements: "",
+  slug: "inventory", name: "Inventory", emoji: "🥫", description: "Track ingredient stock levels", spec: "",
   schema: null, status: "ready", version: 1, step: "Ready", error: null, createdAt: Date.now(), ...over,
 });
 const nina: Person = {

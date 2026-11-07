@@ -6,6 +6,7 @@ import {
   listApps, listConnectors, listKnowledge, listPeople, countRecords, patchApp, upsertKnowledge,
 } from "./db";
 import { isBuilding, startBuild } from "./builder";
+import { SPEC_FORMAT, addSpecBlock, writeSpec } from "./spec";
 import { isRunning, startEmployee } from "./employee";
 
 export type Job = { kind: "user" | "event"; text: string };
@@ -20,12 +21,15 @@ How you talk:
 How you work:
 - Turn order: call your tools first, then write your message to Marko at the very end of the turn. Do not narrate before or between tool calls. Cards for your tool calls (pages, app setup, hires, Connect Gmail) appear just above your message, so never say "below".
 - Interview Marko to understand the business. As soon as you learn something, write it down with upsert_knowledge_page — several pages over the conversation (e.g. company-profile 🏢, suppliers 🚚, pain-points 🔥, team 👥, menu 🍽️, daily-workflow ⏱️). Rewrite a page (same slug) when you learn more. Pages are concise Notion-style docs: short headings, bullets, tables where useful. Never invent facts Marko didn't give you; leave gaps out.
-- Only propose an app after Marko has described a concrete pain in his own words. Propose it in one sentence (name + what it does), ask if he wants it, and wait. Name apps plainly after what they hold, e.g. **Inventory** for stock, **Staff Schedule**, **Supplier Directory**. Only an explicit yes ("yes", "do it", "build that") counts; new details are not a yes, so fold them into the proposal and ask again. Then call build_app. Requirements must be specific: the records to track, every field with units, what needs attention (e.g. low stock), and the concrete items, suppliers and numbers Marko mentioned so the app starts with his real data. Where he gave no numbers, ask the app to start with realistic example values (e.g. current stock and minimum levels), with the items he runs out of starting below their minimum, so the app is useful on day one. This is starter data in an app he can edit, not a fact for Knowledge.
+- Only propose an app after Marko has described a concrete pain in his own words. Propose it in one sentence (name + what it does), ask if he wants it, and wait. Name apps plainly after what they hold, e.g. **Inventory** for stock, **Staff Schedule**, **Supplier Directory**. Only an explicit yes ("yes", "do it", "build that") counts; new details are not a yes, so fold them into the proposal and ask again. Then call build_app with the app's spec (format below). The spec is the source of truth: the app is generated from it, and Marko can read and edit it. Be specific: every record and field with units in Definitions; one short ### block per behaviour (e.g. what needs attention, like low stock); Starter data with the concrete items, suppliers and numbers Marko mentioned so the app starts with his real data. Where he gave no numbers, Starter data asks for realistic example values (e.g. current stock and minimum levels), with the items he runs out of starting below their minimum, so the app is useful on day one. This is starter data in an app he can edit, not a fact for Knowledge. Acceptance has one checkable line per important block, phrased against the starter data.
 - Apps take about a minute to set up; Marko watches progress in a card. Don't wait for it or promise a time.
 - When Marko needs ongoing work done (e.g. reading supplier emails) and the app it feeds exists, propose an AI employee and hire them with hire_employee once he agrees (a direct request counts as agreement). Instructions must name the exact app slug and collection to update and how to match items (by name, case-insensitive; add new items when missing).
 - If an employee needs Gmail and it isn't connected, call request_connector with the task to run afterwards. When you receive "[event] Gmail connected …", immediately call run_employee with the pending task, then tell Marko in one sentence that the work has started.
 - Messages that start with [event] are system notifications, not Marko speaking.
-- A <workspace> block at the start of each message shows the current workspace. Trust it over memory.`;
+- A <workspace> block at the start of each message shows the current workspace. Trust it over memory.
+
+App spec format (markdown; block ids are kebab-case; refer to defined records as :Name:; plain words Marko understands):
+${SPEC_FORMAT}`;
 
 const TOOLS = [
   {
@@ -54,9 +58,9 @@ const TOOLS = [
         name: { type: "string", description: "Short, e.g. Inventory" },
         emoji: { type: "string" },
         description: { type: "string", description: "One sentence" },
-        requirements: { type: "string", description: "Detailed: records, fields with units, highlights, real items/suppliers/numbers Marko gave" },
+        spec: { type: "string", description: "The app spec in the App spec format: Definitions, Functional specs (### blocks), Starter data, Acceptance" },
       },
-      required: ["name", "emoji", "description", "requirements"],
+      required: ["name", "emoji", "description", "spec"],
       additionalProperties: false,
     },
   },
@@ -160,6 +164,7 @@ export function runTool(name: string, input: any): { text: string; isError?: boo
     }
     case "build_app": {
       const app = createApp(input);
+      writeSpec(app);
       publish({ type: "state.changed" });
       chat("app_card", { slug: app.slug });
       startBuild(app.slug);
@@ -169,7 +174,8 @@ export function runTool(name: string, input: any): { text: string; isError?: boo
       const app = getApp(input.slug);
       if (!app) return { text: `No app with slug ${input.slug}.`, isError: true };
       if (isBuilding(app.slug)) return { text: "That app is being set up right now; try again when it's ready.", isError: true };
-      patchApp(app.slug, { requirements: `${app.requirements}\n\nChange (v${app.version + 1}): ${input.change_request}` });
+      writeSpec(patchApp(app.slug, { spec: addSpecBlock(app.spec, `change-v${app.version + 1}`, input.change_request) }));
+      publish({ type: "state.changed" });
       chat("app_card", { slug: app.slug, change: input.summary || input.change_request, fromVersion: app.version });
       startBuild(app.slug, { changeRequest: input.change_request });
       return { text: `Update started for ${app.name}. Existing data is kept.` };

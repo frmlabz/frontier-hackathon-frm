@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, role TEXT, content_j
 CREATE TABLE IF NOT EXISTS chat_items(id INTEGER PRIMARY KEY, kind TEXT, payload_json TEXT, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS knowledge_pages(slug TEXT PRIMARY KEY, emoji TEXT, title TEXT, markdown TEXT, position INTEGER, updated_at INTEGER);
 CREATE TABLE IF NOT EXISTS apps(slug TEXT PRIMARY KEY, name TEXT, emoji TEXT, description TEXT,
-  requirements TEXT, schema_json TEXT, status TEXT, version INTEGER, step TEXT, error TEXT, created_at INTEGER);
+  spec TEXT, schema_json TEXT, status TEXT, version INTEGER, step TEXT, error TEXT, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS records(app TEXT, collection TEXT, id TEXT, data_json TEXT, created_at INTEGER, updated_at INTEGER,
   PRIMARY KEY(app, collection, id));
 CREATE TABLE IF NOT EXISTS people(id TEXT PRIMARY KEY, kind TEXT, name TEXT, role TEXT, emoji TEXT, color TEXT,
@@ -26,13 +26,16 @@ CREATE TABLE IF NOT EXISTS emails(id TEXT PRIMARY KEY, from_name TEXT, from_addr
 CREATE TABLE IF NOT EXISTS processed_emails(message_id TEXT PRIMARY KEY, person_id TEXT);
 CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT);
 `);
+try {
+  db.exec("ALTER TABLE apps RENAME COLUMN requirements TO spec"); // DBs from before Stretch A
+} catch {}
 
 // ---------- types ----------
 export type ChatItem = { id: number; kind: string; payload: any; createdAt: number };
 export type Field = { name: string; type: "text" | "number" | "date" | "boolean"; unit?: string | null };
 export type Collection = { name: string; fields: Field[] };
 export type App = {
-  slug: string; name: string; emoji: string; description: string; requirements: string;
+  slug: string; name: string; emoji: string; description: string; spec: string;
   schema: Collection[] | null; status: string; version: number; step: string; error: string | null; createdAt: number;
 };
 export type Person = {
@@ -115,7 +118,7 @@ export function upsertKnowledge(p: { slug: string; emoji: string; title: string;
 
 // ---------- apps ----------
 const toApp = (r: any): App => ({
-  slug: r.slug, name: r.name, emoji: r.emoji, description: r.description, requirements: r.requirements,
+  slug: r.slug, name: r.name, emoji: r.emoji, description: r.description, spec: r.spec ?? "",
   schema: r.schema_json ? JSON.parse(r.schema_json) : null, status: r.status, version: r.version, step: r.step,
   error: r.error, createdAt: r.created_at,
 });
@@ -124,20 +127,20 @@ export const getApp = (slug: string) => {
   const r = db.query("SELECT * FROM apps WHERE slug=?").get(slug);
   return r ? toApp(r) : null;
 };
-export function createApp(a: { name: string; emoji: string; description: string; requirements: string }): App {
+export function createApp(a: { name: string; emoji: string; description: string; spec: string }): App {
   const base = slugify(a.name, "app");
   let slug = base;
   for (let i = 2; getApp(slug); i++) slug = `${base}-${i}`;
   db.query("INSERT INTO apps VALUES (?,?,?,?,?,?,?,?,?,?,?)").run(
-    slug, a.name, a.emoji, a.description, a.requirements, null, "generating", 0, "Designing your app", null, now(),
+    slug, a.name, a.emoji, a.description, a.spec, null, "generating", 0, "Designing your app", null, now(),
   );
   return getApp(slug)!;
 }
-export function patchApp(slug: string, p: Partial<Pick<App, "status" | "step" | "error" | "version" | "schema" | "requirements">>) {
+export function patchApp(slug: string, p: Partial<Pick<App, "status" | "step" | "error" | "version" | "schema" | "spec">>) {
   const cur = getApp(slug)!;
   const n = { ...cur, ...p };
-  db.query("UPDATE apps SET status=?, step=?, error=?, version=?, schema_json=?, requirements=? WHERE slug=?").run(
-    n.status, n.step, n.error, n.version, n.schema ? JSON.stringify(n.schema) : null, n.requirements, slug,
+  db.query("UPDATE apps SET status=?, step=?, error=?, version=?, schema_json=?, spec=? WHERE slug=?").run(
+    n.status, n.step, n.error, n.version, n.schema ? JSON.stringify(n.schema) : null, n.spec, slug,
   );
   return getApp(slug)!;
 }

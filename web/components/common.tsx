@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { navigate, type Person } from "../store";
 
@@ -41,7 +41,7 @@ export function Link({ to, children, className }: { to: string; children: ReactN
   );
 }
 
-export function Markdown({ text, className }: { text: string; className?: string }) {
+export function Markdown({ text, className, components }: { text: string; className?: string; components?: Components }) {
   return (
     <div className={cx("md", className)}>
       <ReactMarkdown
@@ -49,6 +49,7 @@ export function Markdown({ text, className }: { text: string; className?: string
         components={{
           a: ({ href, children }) =>
             href?.startsWith("/") ? <Link to={href}>{children}</Link> : <a href={href} target="_blank" rel="noreferrer">{children}</a>,
+          ...components,
         }}
       >
         {text}

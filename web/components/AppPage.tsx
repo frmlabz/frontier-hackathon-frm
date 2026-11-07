@@ -3,6 +3,7 @@ import { AlertCircle, MessageCircle } from "lucide-react";
 import { useStore } from "../store";
 import { Badge, Button, Link, Spinner, TopBar, cx } from "./common";
 import { STEPS } from "./cards";
+import { SpecView } from "./SpecView";
 
 function Skeleton({ step, emoji, name }: { step: string; emoji: string; name: string }) {
   const active = Math.max(0, STEPS.indexOf(step));
@@ -88,7 +89,19 @@ function Frames({ slug, version }: { slug: string; version: number }) {
   );
 }
 
-export function AppPage({ slug }: { slug: string }) {
+function Tabs({ slug, tab }: { slug: string; tab: "app" | "spec" }) {
+  const item = (id: "app" | "spec", label: string) => (
+    <Link
+      to={id === "app" ? `/app/${slug}` : `/app/${slug}/spec`}
+      className={cx("h-7 px-2 rounded flex items-center text-[13px] hover:bg-hover", tab === id ? "text-ink-strong font-medium bg-hover" : "text-muted")}
+    >
+      {label}
+    </Link>
+  );
+  return <div data-tabs className="flex items-center">{item("app", "App")}{item("spec", "Spec")}<span className="w-px h-4 bg-hairline-strong mx-1.5" /></div>;
+}
+
+export function AppPage({ slug, tab = "app" }: { slug: string; tab?: "app" | "spec" }) {
   const app = useStore((s) => s.apps.find((a) => a.slug === slug));
   const loaded = useStore((s) => s.loaded);
   const prevVersion = useRef(app?.version ?? 0);
@@ -128,6 +141,7 @@ export function AppPage({ slug }: { slug: string }) {
         ]}
         right={
           <>
+            <Tabs slug={app.slug} tab={tab} />
             {status}
             <Link to="/" className="flex items-center gap-1 h-7 px-2 rounded hover:bg-hover text-muted hover:text-ink">
               <MessageCircle size={14} /> Ask CEO
@@ -135,6 +149,9 @@ export function AppPage({ slug }: { slug: string }) {
           </>
         }
       />
+      {tab === "spec" && <SpecView app={app} />}
+      {/* The app stays mounted under the Spec tab, so switching back is instant and live updates keep flowing. */}
+      <div className={cx("flex-1 min-h-0 flex flex-col", tab === "spec" && "hidden")}>
       {app.version < 1 ? (
         app.status === "failed" ? (
           <div className="flex-1 flex items-center justify-center">
@@ -151,6 +168,7 @@ export function AppPage({ slug }: { slug: string }) {
       ) : (
         <Frames slug={app.slug} version={app.version} />
       )}
+      </div>
     </div>
   );
 }

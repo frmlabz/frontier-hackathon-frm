@@ -6,6 +6,7 @@ import { publish } from "./bus";
 import {
   DATA_DIR, MOCK, countRecords, getApp, insertRecord, listKnowledge, patchApp, type App, type Collection,
 } from "./db";
+import { writeSpec } from "./spec";
 
 const ROOT = resolve(import.meta.dir, "..");
 const RUNTIME = {
@@ -31,6 +32,8 @@ db.remove(coll, id: string): Promise<void>
 ai.extract(file: File, instructions: string): Promise<any>`;
 
 const SYSTEM = `You write small, polished internal tools for a small business. Each tool is ONE React file (App.tsx) that runs inside the business's workspace (it looks like a Notion page).
+
+The <spec> is the source of truth. Definitions describe the records (":Name:" is a defined record). Implement every "### id" block under Functional specs. "Starter data" says what seed_json contains. Every Acceptance line must hold for the seeded data.
 
 Hard rules:
 - Imports allowed: "react", "@bos/ui", "@bos/sdk". Nothing else. No fetch, no localStorage, no window.parent.
@@ -132,7 +135,8 @@ function userPrompt(app: App, reason: BuildReason, code: string | null) {
   const knowledge = listKnowledge().map((p) => `## ${p.emoji} ${p.title}\n${p.markdown}`).join("\n\n");
   const parts = [
     `<business_knowledge>\n${knowledge || "(none yet)"}\n</business_knowledge>`,
-    `<app>\nName: ${app.name}\nEmoji: ${app.emoji}\nDescription: ${app.description}\n\nRequirements:\n${app.requirements}\n</app>`,
+    `<app>\nName: ${app.name}\nEmoji: ${app.emoji}\nDescription: ${app.description}\n</app>`,
+    `<spec>\n${app.spec}\n</spec>`,
   ];
   if (code) {
     parts.push(`<current_code>\n${code}\n</current_code>`);
@@ -257,7 +261,7 @@ async function build(slug: string, reason: BuildReason) {
     if (!err) {
       // A version produced by an auto-fix never gets another one, so a fix that still crashes can't loop.
       if (fixing) autoFixed.add(`${slug}@v${next}`);
-      promote(slug, next, out, prevVersion === 0);
+      promote(slug, next, out, prevVersion === 0, app.spec);
       return;
     }
     lastErr = err;
@@ -276,8 +280,9 @@ async function build(slug: string, reason: BuildReason) {
   console.error(`[builder] ${slug} gave up: ${lastErr.slice(0, 300)}`);
 }
 
-function promote(slug: string, version: number, out: BuildOutput, first: boolean) {
+function promote(slug: string, version: number, out: BuildOutput, first: boolean, builtSpec: string) {
   const app = getApp(slug)!;
+  writeSpec({ ...app, spec: builtSpec }, version); // the spec this version was built from
   // Schema changes are additive: keep fields the new build forgot so employees still see them.
   const merged: Collection[] = [...out.collections];
   for (const old of app.schema ?? []) {

@@ -81,7 +81,7 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   if (!inventory && getKnowledge("pain-points") && has(/^(yes|yeah|yep|sure|ok|okay|do it|go|please|sounds good|let'?s)/, t.trim())) {
     tool("build_app", {
       name: "Inventory", emoji: "🥫", description: "Live stock levels for every ingredient, with low-stock warnings.",
-      requirements: "Track ingredients: name, category, quantity, unit, minimum, supplier. Highlight anything below minimum.",
+      spec: MOCK_SPEC,
     });
     return say("Setting up **Inventory** now. I'm starting it with the ingredients and suppliers you mentioned.");
   }
@@ -100,6 +100,26 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   if (has(/^(hi|hello|hey)/, t)) return say("Hi Marko! Tell me about the business — what do you run, and who's on the team?");
   return say("Noted. What else should I know — or is there something you'd like me to take off your plate?");
 }
+
+const MOCK_SPEC = `## Definitions
+- :Ingredient: — something the kitchen stocks; has name, category, quantity, unit, minimum and supplier.
+
+## Functional specs
+### list-ingredients
+Marko sees every :Ingredient: in a table with a search box and a category filter.
+
+### low-stock-alert
+An :Ingredient: at or below its minimum shows a red "Low" badge and is counted in a "Low stock" stat.
+
+### add-ingredient
+Marko can add an :Ingredient: from an "Add item" form.
+
+## Starter data
+Marko's ingredients: tomatoes, feta, olive oil, flour, lemons, chicken, lamb, basil, with their suppliers. Realistic example stock and minimums; tomatoes and feta start below their minimum.
+
+## Acceptance
+- low-stock-alert: Tomatoes shows "Low".
+- list-ingredients: Olive oil is listed.`;
 
 // ---------- employee ----------
 const INVOICE_LINES: Record<string, { name: string; qty: number; unit: string; category: string; supplier: string }[]> = {

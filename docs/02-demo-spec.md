@@ -319,7 +319,7 @@ Fresh DB (seeded humans + mock inbox).
 - [x] Auto-fix on `bos:error`
 
 ### Stretch A — Regenerative apps (§15), one commit per step, tag `demo-core` first
-- [ ] Spec file per app + Spec tab on the App page
+- [x] Spec file per app + Spec tab on the App page
 - [ ] Build from spec; per-block hashes; "N specs changed" in the build card
 - [ ] `edit_app_spec` CEO tool + inline spec editing → regenerate
 - [ ] Acceptance checks from the spec run after each build; failures trigger one auto-fix
@@ -370,3 +370,4 @@ An :Ingredient: below its minimum shows a red "Low" badge and is counted in a "R
 - **Spec tab** on the App page (App | Spec), Notion-style rendered markdown, editable inline; saving triggers a rebuild. The CEO tool `edit_app_spec({slug, markdown, summary})` does the same from chat ("Add a supplier column" → CEO edits the spec → app follows).
 - **Acceptance checks:** after a build, the builder makes one cheap Claude call that turns the Acceptance list into checks the iframe runs against rendered DOM text (`bos:check` postMessage). Failures trigger one auto-fix rebuild. The card shows ✓ per check.
 - Records are never touched by regeneration; schema changes are additive.
+- **As built:** the CEO writes only the spec body; the server adds the frontmatter. A `## Starter data` section says what the first build seeds (the items Marko named, plus realistic example values). The Spec tab lives at `/app/<slug>/spec`. Each version keeps the spec it was built from in `v<N>/spec.md`.

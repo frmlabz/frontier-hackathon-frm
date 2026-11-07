@@ -16,7 +16,7 @@ function Route() {
   const wrap = (el: React.ReactNode, key: string) => (
     <div key={key} data-scroll-root className="h-full overflow-y-auto scroll-thin">{el}</div>
   );
-  if (seg[0] === "app" && seg[1]) return <AppPage key={seg[1]} slug={seg[1]} />;
+  if (seg[0] === "app" && seg[1]) return <AppPage key={seg[1]} slug={seg[1]} tab={seg[2] === "spec" ? "spec" : "app"} />;
   if (seg[0] === "knowledge" && seg[1]) return wrap(<KnowledgePage slug={seg[1]} />, path);
   if (seg[0] === "team") return wrap(<TeamPage />, path);
   if (seg[0] === "people" && seg[1]) return wrap(<PersonPage id={seg[1]} />, path);

@@ -84,7 +84,7 @@ const server = Bun.serve({
           name: b.name ?? "Inventory",
           emoji: b.emoji ?? "🥫",
           description: b.description ?? "Track ingredient stock levels",
-          requirements: b.requirements ?? "Track ingredients: name, quantity, unit, minimum stock, supplier. Highlight low stock.",
+          spec: b.spec ?? "## Functional specs\n### list-ingredients\nTrack ingredients: name, quantity, unit, minimum stock, supplier. Highlight low stock.",
         });
         publish({ type: "state.changed" });
         startBuild(app.slug);

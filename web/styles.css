@@ -84,3 +84,9 @@ body {
 .md th { background: var(--color-canvas-soft); font-weight: 500; color: var(--color-muted); }
 .md-chat { font-size: 15px; }
 .md-chat h1, .md-chat h2, .md-chat h3 { font-size: 1.05em; margin: 0.8em 0 0.2em; }
+
+/* Stretch A: app spec page */
+.md-spec h2 { font-size: 1.25em; margin-top: 1.6em; padding-bottom: 0.25em; border-bottom: 1px solid var(--color-hairline); }
+.md-spec .spec-block { display: flex; align-items: baseline; gap: 10px; font-size: 1.05em; margin: 1.1em 0 0.15em; }
+.md-spec .spec-id { font-size: 12px; font-weight: 400; color: var(--color-faint); background: none; padding: 0; }
+.md-spec .spec-concept { color: #337ea9; background: rgba(35, 131, 226, 0.08); border-radius: 4px; padding: 0.05em 0.35em; font-weight: 500; white-space: nowrap; }
