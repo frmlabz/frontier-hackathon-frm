@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "at": 1794097257921,
+  "items": [
+    {
+      "id": "list-ingredients#0",
+      "label": "Olive oil is listed",
+      "row": null,
+      "text": "Olive oil"
+    }
+  ],
+  "results": {
+    "list-ingredients#0": true
+  }
+}

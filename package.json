@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot server/index.ts",
+    "dev": "bun scripts/dev.ts",
+    "dev:one": "bun --hot server/index.ts",
     "start": "NODE_ENV=production bun server/index.ts",
     "reset": "rm -rf data && echo 'data/ cleared'",
-    "seed:demo": "bun fixtures/demo-state.ts",
+    "seed:demo": "bun fixtures/demo-state.ts && bun scripts/seed.ts save",
+    "seed:save": "bun scripts/seed.ts save",
+    "live": "rm -rf data/live && BOS_DATA_DIR=data/live CLAUDE_MODEL=${CLAUDE_MODEL:-claude-opus-5-5} PORT=3000 bun --hot server/index.ts",
+    "seeded": "bun scripts/seed.ts restore && BOS_MOCK=1 PORT=3001 bun --hot server/index.ts",
     "mock": "BOS_MOCK=1 bun --hot server/index.ts",
     "cost": "bun scripts/cost.ts",
     "typecheck": "tsc --noEmit -p ."

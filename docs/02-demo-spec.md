@@ -11,7 +11,7 @@ Context: `docs/01-product-vision.md`. Design tokens: `DESIGN.md`.
 ## 1. Constraints
 
 - **Bun for everything:** runtime, server, bundler, SQLite, package manager.
-- **One process, one command:** `bun dev` → `http://localhost:3000`.
+- **One command:** `bun dev` → `http://localhost:3000` (live, empty) + `http://localhost:3001` (mock, seeded from `fixtures/seed`).
 - **One model for everything** (CEO, app builder, employees), set by `CLAUDE_MODEL` in `.env`. Use **Sonnet 5.5** (`claude-sonnet-5-5`) while building and testing, and **Opus 5.5** (`claude-opus-5-5`) for rehearsals and the demo.
 - **Generated apps are one file** (`App.tsx`).
 - **SQLite:** a single file at `data/bos.sqlite`.
