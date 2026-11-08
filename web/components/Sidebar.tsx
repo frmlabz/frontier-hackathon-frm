@@ -1,5 +1,6 @@
 import { ChevronsUpDown, MessageCircle, Users } from "lucide-react";
 import type { ReactNode } from "react";
+import omniMark from "../assets/omni-mark.svg" with { type: "file" };
 import { isFresh, useStore } from "../store";
 import { Link, Spinner, cx } from "./common";
 
@@ -77,6 +78,12 @@ export function Sidebar() {
             );
           })}
         </Section>
+      </div>
+      <div className="shrink-0 border-t border-hairline px-3 py-3">
+        <Link to="/" className="inline-flex items-center gap-1.5 rounded-[4px] text-muted hover:text-ink-strong transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+          <img src={omniMark} alt="" width={16} height={16} className="shrink-0 opacity-70" />
+          <span className="text-[13px] font-semibold tracking-[-0.02em]">omni</span>
+        </Link>
       </div>
     </aside>
   );
