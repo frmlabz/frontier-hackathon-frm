@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { sendChat, useStore, type ChatItem } from "../store";
 import { AppCard, ConnectorCard, EventLine, HireCard } from "./cards";
 import { Markdown, cx } from "./common";
@@ -41,8 +41,12 @@ function stabilize(md: string) {
 
 export function CeoAvatar({ size = 24 }: { size?: number }) {
   return (
-    <span className="rounded-full flex items-center justify-center shrink-0 text-white bg-[linear-gradient(135deg,#2f2e2b,#5b5a56)] shadow-[0_1px_2px_rgba(0,0,0,0.15)]" style={{ width: size, height: size }}>
-      <Sparkles size={size * 0.5} strokeWidth={2.2} />
+    <span
+      aria-hidden="true"
+      className="flex items-center justify-center shrink-0 bg-[#fdecc8] leading-none"
+      style={{ width: size, height: size, borderRadius: size * 0.2, fontSize: size * 0.65 }}
+    >
+      🍋
     </span>
   );
 }
@@ -156,8 +160,8 @@ export function Composer({ onSent, autoFocus, draft, setDraft }: { onSent?: () =
         placeholder={busy ? "AI CEO is replying…" : "Message your AI CEO…"}
         className="block w-full resize-none bg-transparent outline-none px-4 pt-3.5 pb-1 text-[15px] leading-[1.55] placeholder:text-faint max-h-[220px] scroll-thin"
       />
-      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-        <span className="text-[12px] text-faint pl-1">{busy ? <span className="text-shimmer">Working…</span> : "Enter to send · Shift+Enter for a new line"}</span>
+      <div className="flex items-center justify-end px-3 pb-2.5 pt-1">
+        {busy ? <span className="text-[12px] text-faint pl-1 mr-auto text-shimmer">Working…</span> : null}
         <button
           onClick={send}
           disabled={!canSend}

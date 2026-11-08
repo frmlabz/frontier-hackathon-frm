@@ -31,7 +31,7 @@ function Section({ title, children, empty }: { title: string; children: ReactNod
 }
 
 export function Sidebar() {
-  const { path, knowledge, apps, unread, mock, online } = useStore();
+  const { path, knowledge, apps, unread } = useStore();
   useStore((s) => s.fresh); // re-render when something new arrives
   return (
     <aside className="w-[240px] shrink-0 h-full bg-sidebar border-r border-hairline flex flex-col select-none">
@@ -77,12 +77,6 @@ export function Sidebar() {
             );
           })}
         </Section>
-      </div>
-
-      <div className="px-3 py-2 border-t border-hairline flex items-center gap-2 text-[12px] text-faint">
-        <span className={cx("w-1.5 h-1.5 rounded-full", online ? "bg-green" : "bg-red pulse-dot")} />
-        {online ? "Live" : "Reconnecting…"}
-        {mock && <span className="ml-auto px-1.5 rounded bg-[#fdecc8] text-[#7a5a14] font-medium">Mock AI</span>}
       </div>
     </aside>
   );
