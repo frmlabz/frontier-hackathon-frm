@@ -214,12 +214,16 @@ async function generate(app: App, messages: any[], onWriting: () => void): Promi
   return { out: { code: raw.code, collections, seed }, content: msg.content };
 }
 
+const transpiler = new Bun.Transpiler({ loader: "tsx" });
+
 /** Static checks the bundler can't do for us. Returns an error message or null. */
 function lint(code: string): string | null {
-  const imports = [...code.matchAll(/(?:import|export)[^'"]*?from\s*["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|import\s*["']([^"']+)["']/g)].map(
-    (m) => m[1] ?? m[2] ?? m[3],
-  );
-  const bad = imports.filter((i) => i && !/^(react|react\/jsx-runtime|@bos\/ui|@bos\/sdk)$/.test(i));
+  // Bun's parser, not a regex: UI text like 'import them from "the photo"' isn't an import. Syntax errors are left to Bun.build.
+  let imports: string[] = [];
+  try {
+    imports = transpiler.scanImports(code).map((i) => i.path);
+  } catch {}
+  const bad = imports.filter((i) => !/^(react|react\/jsx-(dev-)?runtime|@bos\/ui|@bos\/sdk)$/.test(i));
   if (bad.length) return `Disallowed imports: ${bad.join(", ")}. Only "react", "@bos/ui" and "@bos/sdk" are available.`;
   if (!/export\s+default/.test(code)) return "App.tsx must `export default` the App component.";
   if (/\bfetch\s*\(/.test(code)) return "Do not call fetch(); use db / useCollection from @bos/sdk.";
