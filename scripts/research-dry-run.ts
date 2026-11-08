@@ -1,4 +1,4 @@
-// One real research run on the demo request (05 §9 step 1). Costs money: requires --live.
+// One real research run on the demo request. Costs money: requires --live.
 // Saves every response block, progress, drops, usage and the result to logs/research-dry-run/<ts>.json.
 import { mkdirSync, writeFileSync } from "node:fs";
 import request from "../fixtures/research/request.json";

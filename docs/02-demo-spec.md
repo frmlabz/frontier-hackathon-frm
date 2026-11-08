@@ -12,15 +12,14 @@ Context: `docs/01-product-vision.md`. Design tokens: `DESIGN.md`.
 
 - **Bun for everything:** runtime, server, bundler, SQLite, package manager.
 - **One command:** `bun dev` → `http://localhost:3000` (live, empty) + `http://localhost:3001` (mock, seeded from `fixtures/seed`).
-- **One model for everything** (CEO, app builder, employees), set by `CLAUDE_MODEL` in `.env`. Use **Sonnet 5.5** (`claude-sonnet-5-5`) while building and testing, and **Opus 5.5** (`claude-opus-5-5`) for rehearsals and the demo.
+- **One model for everything** (CEO, app builder, employees), set by `CLAUDE_MODEL` in `.env` (default `claude-sonnet-5-5`; the demo runs `claude-opus-5-5`).
 - **Generated apps are one file** (`App.tsx`).
 - **SQLite:** a single file at `data/bos.sqlite`.
-- No tests, no auth, one workspace, one user. Rehearse the demo instead.
+- No auth, one workspace, one user.
 - **Real-time:** one WebSocket from server to shell. The shell forwards updates into the app iframes.
 - **Gmail is mocked:** a local fake inbox behind the same tool interface a real Gmail integration would have. No Google OAuth.
-- **No OCR / photo import** until the core flow is finished (end of the checklist).
+- **Photo import** is the last feature (§12 step 8).
 - **Mock AI mode for UX work** (`BOS_MOCK=1`, §14): scripted CEO/builder/employee so the whole UI can be developed and QA'd without API spend. Dev only; the demo always runs real models.
-- **Commit after every checklist section** (and every stretch step) so anything can be rolled back.
 
 ## 2. Stack
 
@@ -329,64 +328,11 @@ The app rebuilds to v2 with a Reorder note column, and every record is kept.
 
 The CEO adds an `invoice-photo-import` block to the spec and Inventory regenerates with an **Import invoice photo** button. Open Inventory and drop `fixtures/invoice/invoice-photo.png` onto the drop zone. It is a paper delivery note from Adriatic Fresh Produce with Croatian item names. One vision call reads it and matches "Rajčica San Marzano" to Tomatoes. The review table shows each line as "16 → 24" or "New item". **Update stock** applies it.
 
-## 13. Checklist (in order)
+## 13. Status
 
-### 0 — Prove the risky bits first
-- [x] devbox with Bun 1.4.2 (`devbox.json`, `.envrc`)
-- [x] `bun init --react=tailwind`; `bun dev` serves the page with HMR
-- [x] One real streaming call on **each** model (`claude-sonnet-5-5`, `claude-opus-5-5`) with the §10 options; drop any flag that errors
-- [x] `Bun.build` of a hand-written `App.tsx` importing `@bos/ui` / `@bos/sdk`, served in an iframe with ui.css + Tailwind CDN
-- [x] `.env` with `ANTHROPIC_API_KEY` (`CLAUDE_MODEL` defaults to `claude-sonnet-5-5` in code)
+**Built:** Hub chat with the AI CEO, Knowledge pages, generated, bundled and hosted apps with live records, Gmail employee (mock inbox), Team and Person pages, mock mode, spec-driven regeneration with acceptance checks and one auto-fix (§15), invoice photo import (`ai.extract`), Connectors page and the research-first ROI report (`04-connectors-and-roi.md`).
 
-### 1 — Contracts (freeze before parallel work)
-- [x] `db.ts` schema + seed humans + seed mock inbox
-- [x] `runtime/ui.tsx` props + `ui.css` (Notion tokens)
-- [x] `runtime/sdk.ts`, `runtime/entry.tsx` (ErrorBoundary, ready/error postMessage)
-- [x] `bus.ts` event types shared with `web/store.ts`
-
-### 1.5 — Mock mode (§14)
-- [x] `mockAi.ts` scripted CEO turns (streamed word by word), fixture build through the real `Bun.build`, scripted employee run with activity + record writes
-- [x] `bun run seed:demo` mid-demo state
-- [x] `/dev/gallery`: every chat card in every state, kit components, empty/loading/error states
-
-### 2 — Generate → host → live data
-- [x] `builder.ts` full pipeline incl. retry and versioned dirs
-- [x] `/apps/*` routes + records CRUD + `records.changed`
-- [x] Shell forwards `records.changed` into iframes, reloads on version bump
-- [x] Sidebar app rows with status; App page
-- [x] Temporary dev button "build test app" to exercise the builder without the CEO
-
-### 3 — CEO
-- [x] Turn queue, streaming loop, `messages` + `chat_items` persistence
-- [x] `upsert_knowledge_page`, `build_app`, `hire_employee`, `request_connector`, `run_employee`
-- [x] Hub page (empty state, stream, composer), all four card types, unread dot
-
-### 4 — Gmail employee (mock inbox)
-- [x] Connector card button + `/connect`, CEO resume event
-- [x] `mockGmail.ts` search/read
-- [x] `employee.ts` loop + `processed_emails` dedupe + activity events
-- [x] Team page + Person page with live feed
-
-### 5 — Polish + rehearsal
-- [x] Notion fidelity pass on the shell (spacing, hover states, type scale, empty states, transitions)
-- [x] Run the demo script end to end on a fresh DB at least 3 times with `CLAUDE_MODEL=claude-opus-5-5`; fix whatever breaks
-- [x] `bun run reset` script: delete `data/`, restart
-
-### P1 (only after 5 passes)
-- [x] `update_app` rebuild
-- [x] Auto-fix on `bos:error`
-
-### Stretch A — Regenerative apps (§15), one commit per step, tag `demo-core` first
-- [x] Spec file per app + Spec tab on the App page
-- [x] Build from spec; per-block hashes; "N specs changed" in the build card
-- [x] `edit_app_spec` CEO tool + inline spec editing → regenerate
-- [x] Acceptance checks from the spec run after each build; failures trigger one auto-fix
-
-### Stretch B (only after A)
-- [x] `/api/ai/extract` + `FileDrop` invoice photo import (OCR)
-
-### Cut
-Dashboard, Connectors page, real Google OAuth, Google Sheets, public apps, team invites, prompt caching, streaming code line counts, right-side chat panel.
+**Not built:** Dashboard, real OAuth for any connector, public apps, team invites and login, isolation between generated apps beyond the iframe, observability. See `roadmap.md`.
 
 ## 14. Mock AI mode (dev / QA only)
 
@@ -397,7 +343,7 @@ Dashboard, Connectors page, real Google OAuth, Google Sheets, public apps, team 
 - **Employee:** walks the seeded inbox, emits `activity.add` lines with delays, and writes real record updates so the iframe changes live.
 - **`bun run seed:demo`:** writes a mid-demo state into `data/mock` (knowledge pages, Inventory built and updated to v2, Purchasing Assistant hired with activity) for screenshot/QA work. It drives the real mock flow via `scripts/rehearse.ts` against a temporary server, so the state always matches the code.
 
-Mock mode exists so UX can be iterated for free. It is never used in rehearsal or the demo, and nothing from it is cached for the real path.
+Mock mode exists so UX can be iterated for free. It is never used in the live demo, and nothing from it is cached for the real path.
 
 ## 15. Stretch A — Regenerative apps
 

@@ -1,4 +1,4 @@
-// The fake sign-in (04 A2, 05 §3.2). One dialog for the whole app: the Connectors page and the chat
+// The fake sign-in (04 A2). One dialog for the whole app: the Connectors page and the chat
 // connector_card both call openConnector(id). Nothing leaves the app: Allow only posts {account} to our own
 // server. There is never a password field, and Escape / Cancel close without writing anything.
 import { useEffect, useState, type ReactNode } from "react";

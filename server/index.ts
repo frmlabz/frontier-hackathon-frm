@@ -24,7 +24,7 @@ const body = async (req: Request) => {
   }
 };
 
-/** Fake connect (05 §2): writes the row; the CEO hears about it only when a task was waiting on this provider. */
+/** Fake connect: writes the row; the CEO hears about it only when a task was waiting on this provider. */
 function connectProvider(id: string, account: unknown) {
   const c = getConnector(id);
   if (!c) return json({ error: "unknown connector" }, 404);

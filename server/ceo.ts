@@ -260,7 +260,7 @@ function reportLine(r: ReportRow) {
   return `📈 ${rep.title} (${r.status}).${top ? ` Top finding: ${top.finding.claim} (${KIND[top.kind]}).` : ""} Opportunities: ${opps.join("; ") || "none"}.`;
 }
 
-/** The CEO event when a report finishes (05 §4.7). */
+/** The CEO event when a report finishes. */
 function reportEvent(r: ReportRow) {
   if (r.status === "failed" || !r.report) return `[event] Research failed: ${r.error ?? "unknown reason"}`;
   const top = strongestFinding(r.report);

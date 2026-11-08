@@ -28,7 +28,7 @@ type State = {
   path: string;
   /** Things that just appeared/changed: key → timestamp, for fade-in / highlight animations. */
   fresh: Record<string, number>;
-  /** Connector id whose sign-in dialog is open (one dialog for the whole app, 05 §3.2). */
+  /** Connector id whose sign-in dialog is open (one dialog for the whole app). */
   connectDialog: string | null;
 };
 

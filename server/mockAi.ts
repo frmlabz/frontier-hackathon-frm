@@ -62,7 +62,7 @@ const NUMBERS = `
 
 const YES = /^(yes|yeah|yep|sure|ok|okay|do it|go ahead|sounds good|let'?s)\b/;
 
-/** Scripted CEO, in 05 §8 order. Stage lives in kv mock:stage (chosen → await-stock) so later messages aren't keyword-swallowed. */
+/** Scripted CEO, in demo order. Stage lives in kv mock:stage (chosen → await-stock) so later messages aren't keyword-swallowed. */
 export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   const t = job.text;
   await sleep(1200 + Math.random() * 400); // "Thinking" long enough to read as a real turn

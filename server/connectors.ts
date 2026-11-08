@@ -1,4 +1,4 @@
-// The Connectors catalog (04 A3, 05 §3.1). Pure: imported by the server and the web app.
+// The Connectors catalog (04 A3). Pure: imported by the server and the web app.
 // Only Gmail does anything; the rest connect for show and nothing can use them yet.
 
 export type Category = "Email & chat" | "Sheets & docs" | "Automation" | "Sales & payments" | "Accounting";

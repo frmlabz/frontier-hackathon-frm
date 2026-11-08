@@ -83,7 +83,7 @@ function describeChange(before: any, after: any, unitOf: (k: string) => string, 
 
 /** Executes one employee tool. Shared by the real loop and mock mode. */
 export function runEmployeeTool(p: Person, name: string, input: any): any {
-  // 05 §3.4: Marko can disconnect Gmail mid-run; the next Gmail read stops the employee. mark_processed stays
+  // Marko can disconnect Gmail mid-run; the next Gmail read stops the employee. mark_processed stays
   // allowed so an invoice already applied to stock is still marked done and a rerun doesn't import it twice.
   if ((name === "gmail_search" || name === "gmail_read") && !isConnected("gmail")) {
     log(p.id, "Gmail was disconnected, stopping.");

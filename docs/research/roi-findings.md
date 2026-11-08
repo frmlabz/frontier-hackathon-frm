@@ -32,7 +32,7 @@ The following sources were rejected and must not be used:
 
 ## Estimates for the demo inputs
 
-Marko's numbers from demo message 3: 5 h/week copying invoices, a stock-out 2–3×/week, 120 covers/day, €9,000/month on food. The estimates are computed in code from structured references (see `05` §4.2), not written by the model. Finding ids match `fixtures/research/report.json` (`05` §5): F1 $7 per $1, F2 26%, F3 over 75%, F4 89%, F5 4–10%, F6 6,082, F7 23,333.
+Marko's numbers from demo message 3: 5 h/week copying invoices, a stock-out 2–3×/week, 120 covers/day, €9,000/month on food. The estimates are computed in code from structured references (`server/report.ts`), not written by the model. Finding ids match `fixtures/research/report.json`: F1 $7 per $1, F2 26%, F3 over 75%, F4 89%, F5 4–10%, F6 6,082, F7 23,333.
 
 | id | Estimate | Computation | Result |
 |---|---|---|---|

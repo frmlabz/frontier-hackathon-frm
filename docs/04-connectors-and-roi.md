@@ -1,6 +1,6 @@
 # 04 · Connectors page and the ROI-first opening
 
-Status: approved spec for branch `feat/connectors-roi` (baseline: tag `demo-scripted`). The how, including types, validation rules, prompts and build order, is in `05-implementation-plan.md`, and where the two differ, 05 wins. The checked sources and demo numbers are in `research/roi-findings.md`. When it ships, fold §A and §B into `02-demo-spec.md` and regenerate §16 with `bun run prompts:doc`.
+Status: built. The checked sources and demo numbers are in `research/roi-findings.md`. The exact prompts are in `02-demo-spec.md` §16 (`bun run prompts:doc` regenerates it).
 
 Two changes:
 
@@ -49,7 +49,7 @@ There is no OAuth and nothing is sent anywhere. The point is that the demo looks
 - There is never a password field.
 - Escape or Cancel writes nothing.
 - There are no "demo connection" disclaimers on screen. Honesty lives in the CEO prompt (A5): only Gmail does anything.
-- The exact copy and layout are in `05` §3.2.
+- Copy and layout: `web/components/ConnectorSignIn.tsx`.
 
 The chat card for Gmail (`connector_card`) opens the same dialog instead of connecting on click. It's one code path, so the demo looks the same in both places.
 
@@ -77,7 +77,7 @@ The catalog is a static list in `server/connectors.ts`, shared with the web app 
 Each entry has `{ id, name, category, description, scopes[], functional, signIn: "google" | "generic" }`.
 
 - `signIn` is `google` for gmail, google-sheets and google-drive, and `generic` for the rest.
-- The descriptions and scopes are listed in `05` §3.1. Gmail's is "Read supplier email".
+- The descriptions and scopes live in `server/connectors.ts`. Gmail's is "Read supplier email".
 
 **Logos:** inline SVGs in `web/logos.tsx`, one component per provider, in each brand's own colors.
 
@@ -214,7 +214,7 @@ One background agent per report, built like the builder and the employee.
 - Each `web_fetch` publishes the domain ("Reading nra.org").
 - The card keeps the last 4 lines, plus a source counter.
 
-**System prompt:** the final text is in `05` §4.5. It covers:
+**System prompt:** the final text is in `02-demo-spec.md` §16.10. It covers:
 
 - Prefer studies, then surveys, then news, and vendors last. Search for the specific pain.
 - Fetch every page you quote and copy the sentence word for word. The finding's numbers must be in that quote.
@@ -226,7 +226,7 @@ One background agent per report, built like the builder and the employee.
 
 The user message carries `business`, `location`, `pains` and `inputs` from the tool call, plus today's date.
 
-**`submit_report`** is a strict schema. The full types are in `05` §4.1.
+**`submit_report`** is a strict schema. The full types are in `server/report.ts`.
 
 - The model submits:
   - `title` and `summary`;
@@ -239,7 +239,7 @@ The user message carries `business`, `location`, `pains` and `inputs` from the t
 - The model does **not** echo Marko's inputs. The stored report takes them from the CEO's tool call.
 - Estimate values, units and formula text are computed in code (`computeEstimate`), for example `€9,000/month × 4–10% (F5) × 26% (F2)` = €94–234/month.
 
-**Validation in code (`validateReport`, full rules in `05` §4.3):** any failing item is dropped, never fixed, and the drop is logged.
+**Validation in code (`validateReport`, full rules in `server/report.ts`):** any failing item is dropped, never fixed, and the drop is logged.
 
 - **Sources:** every `source.url` must appear in a search or fetch result of this run.
 - **Findings:**
@@ -309,10 +309,10 @@ The prompt alone has failed at this before ("new details are not a yes"). The ga
 - `fixtures/research/report.json` holds a **hand-checked** report.
   - Its sources are real pages: Champions 12.3 (study), LeanPath and Stampli citing APQC (vendors).
   - Every quote was read on the live page on 2026-11-08.
-  - The content is in `05` §5.
+  - The content is `fixtures/research/report.json`.
   - The one live dry run proves the pipeline. Its output replaces the fixture only if it validates and reads better.
 - Mock research streams 5 fake query lines over ~6 s, then runs the fixture through the same validation and estimate code, using the request's inputs.
-- `mockAi.ts` checks branches in the order given in `05` §8:
+- `mockAi.ts` checks branches in this order:
   1. Events.
   2. App edits, photo and hire.
   3. The choice "start" / "yes", which asks for stock.
@@ -372,6 +372,3 @@ Optional beat: before step 6, open 🔌 Connectors and show the catalog, then co
 
 ---
 
-## Build order
-
-See `05` §9. It starts with the research core and the single live dry run, since those carry the most risk. Then come storage and the gate, the connectors server, the CEO prompt and mock flow, the connectors UI, the report UI, and the full QA pass.

@@ -1,4 +1,4 @@
-// Provider logos (05 §3.1, 04 A3). Single-colour marks are path data copied from simple-icons 13.21.0
+// Provider logos (04 A3). Single-colour marks are path data copied from simple-icons 13.21.0
 // (CC0, https://simpleicons.org), in each brand's colour from that package. Gmail and the Google "G" are the
 // multicolour marks; Microsoft Excel and Outlook aren't in simple-icons, so they're simplified hand-drawn marks.
 // No runtime dependency.

@@ -1,4 +1,4 @@
-// 🔌 Connectors (04 A1, 05 §3.3): the catalog with search, category tabs and the fake sign-in.
+// 🔌 Connectors (04 A1): the catalog with search, category tabs and the fake sign-in.
 import { useState } from "react";
 import { MoreHorizontal, Search } from "lucide-react";
 import { disconnect, openConnector, useStore } from "../store";

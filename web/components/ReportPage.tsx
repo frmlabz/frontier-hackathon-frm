@@ -1,4 +1,4 @@
-// 📈 Automation ROI report (04 B6, 05 §6). Renders a ReportRow as stored by server/research.ts; every number
+// 📈 Automation ROI report (04 B6). Renders a ReportRow as stored by server/research.ts; every number
 // here comes from the validated report (fixture in mock mode), nothing is computed beyond display formatting.
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";

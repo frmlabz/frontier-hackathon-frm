@@ -1,4 +1,4 @@
-// Research agent: web search + fetch, one strict submit_report call, validated in code (05 §4.4–4.5).
+// Research agent: web search + fetch, one strict submit_report call, validated in code.
 import { client, logUsage, requestOptions } from "./claude";
 import { REPORT_SCHEMA, validateReport, type Evidence, type ReportRow, type ResearchRequest, type Submission, type Validated } from "./report";
 import { MOCK, getReport, patchReport } from "./db";

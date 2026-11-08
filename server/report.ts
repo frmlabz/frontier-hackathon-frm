@@ -1,4 +1,4 @@
-// ROI report: types, the submit_report schema, estimate math and validation (05 §4.1–4.3).
+// ROI report: types, the submit_report schema, estimate math and validation.
 // Pure: no DB, no SDK. The web imports types and formatValue from here.
 
 export type ResearchInput = { label: string; value: number; unit: string };
