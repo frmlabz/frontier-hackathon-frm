@@ -5,7 +5,7 @@ import {
   MOCK, appendMessage, createAiPerson, createApp, getApp, getMessages, getPerson, insertChatItem, isConnected, kv,
   listApps, listConnectors, listKnowledge, listPeople, countRecords, patchApp, upsertKnowledge,
 } from "./db";
-import { isBuilding, startBuild } from "./builder";
+import { isBuilding, queueBuild, startBuild } from "./builder";
 import { SPEC_FORMAT, diffCount, pendingSpecChanges, stripFrontmatter, writeSpec } from "./spec";
 import { isRunning, startEmployee } from "./employee";
 
@@ -157,10 +157,12 @@ function chat(kind: string, payload: any) {
 }
 
 /** Saves a new spec and regenerates the app if any block that drives the code changed. Used by the CEO tool and the Spec tab. */
-export function applySpecEdit(slug: string, markdown: string, summary: string): { text: string; isError?: boolean; building?: boolean } {
+/** queue: while a build runs, save the edit and rebuild right after it (the CEO); otherwise refuse (the Spec tab). */
+export function applySpecEdit(slug: string, markdown: string, summary: string, queue = false): { text: string; isError?: boolean; building?: boolean } {
   const app = getApp(slug);
   if (!app) return { text: `No app with slug ${slug}.`, isError: true };
-  if (isBuilding(app.slug)) return { text: "That app is regenerating right now; try again when it's ready.", isError: true, building: true };
+  const busy = isBuilding(app.slug);
+  if (busy && !queue) return { text: "That app is regenerating right now; try again when it's ready.", isError: true, building: true };
   const spec = stripFrontmatter(markdown).trim();
   if (!spec) return { text: "The spec can't be empty.", isError: true };
   const textChanged = spec !== stripFrontmatter(app.spec).trim();
@@ -173,11 +175,15 @@ export function applySpecEdit(slug: string, markdown: string, summary: string): 
   // diff is null when nothing was built from a spec yet.
   const diff = pendingSpecChanges(updated);
   const specs = diff ? [...diff.added, ...diff.changed, ...diff.removed] : [];
-  if (diff ? !diffCount(diff) : !textChanged && app.status !== "failed")
+  // While a build runs, the live version says nothing about what is being built, so any text change queues one.
+  if (busy && !textChanged) return { text: `${app.name} is already being rebuilt with this spec. Marko watches it on the card; it isn't done yet.` };
+  if (!busy && (diff ? !diffCount(diff) : !textChanged && app.status !== "failed"))
     return { text: textChanged ? "Saved. No block that drives the app changed, so it wasn't rebuilt." : "The spec is unchanged and the app is up to date." };
-  chat("app_card", { slug: app.slug, change: summary, fromVersion: app.version, specs });
-  startBuild(app.slug);
-  return { text: `Regenerating ${app.name} from the updated spec${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept.` };
+  // A queued change lands in the build after the running one.
+  chat("app_card", { slug: app.slug, change: summary, fromVersion: app.version + (busy ? 1 : 0), specs });
+  queueBuild(app.slug);
+  if (busy) return { text: `Saved. ${app.name} is finishing another update; this change is built right after it${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept. Tell Marko it's on its way, not done.` };
+  return { text: `Regenerating ${app.name} from the updated spec${specs.length ? ` (changed: ${specs.join(", ")})` : ""}. Existing data is kept. Marko watches it build on the card; it isn't done yet.` };
 }
 
 export function runTool(name: string, input: any): { text: string; isError?: boolean } {
@@ -198,7 +204,7 @@ export function runTool(name: string, input: any): { text: string; isError?: boo
       return { text: `Setup started for ${app.emoji} ${app.name} (slug ${app.slug}). Marko sees the progress card; it appears in the sidebar when ready.` };
     }
     case "edit_app_spec":
-      return applySpecEdit(input.slug, input.markdown, input.summary);
+      return applySpecEdit(input.slug, input.markdown, input.summary, true);
     case "hire_employee": {
       const p = createAiPerson(input);
       publish({ type: "state.changed" });

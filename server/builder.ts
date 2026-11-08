@@ -99,6 +99,7 @@ export type BuildOutput = { code: string; collections: Collection[]; seed: Recor
 type BuildReason = { changeRequest?: string; error?: string; failedChecks?: Check[] };
 
 const running = new Set<string>();
+const queued = new Set<string>(); // spec edits saved during a build; they rebuild as soon as it ends
 const autoFixed = new Set<string>(); // `${slug}@v${n}` that already got their one auto-fix
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -110,6 +111,11 @@ function setStatus(slug: string, p: Parameters<typeof patchApp>[1]) {
 
 export const isBuilding = (slug: string) => running.has(slug);
 
+/** Rebuilds the app from its saved spec once the running build finishes (or now, if none is running). */
+export function queueBuild(slug: string) {
+  if (!startBuild(slug)) queued.add(slug);
+}
+
 /** Starts a build in the background. Returns false if one is already running for this app. */
 export function startBuild(slug: string, reason: BuildReason = {}) {
   if (running.has(slug)) return false;
@@ -119,7 +125,10 @@ export function startBuild(slug: string, reason: BuildReason = {}) {
       console.error("[builder]", slug, e);
       setStatus(slug, { status: "failed", step: "Failed", error: "I couldn't finish this app. Ask me to try again." });
     })
-    .finally(() => running.delete(slug));
+    .finally(() => {
+      running.delete(slug);
+      if (queued.delete(slug)) startBuild(slug);
+    });
   return true;
 }
 

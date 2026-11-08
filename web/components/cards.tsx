@@ -103,7 +103,9 @@ export function AppCard({ id, payload }: { id?: number; payload: { slug: string;
   if (!app) return null;
   // Older cards are history: they show as done at the version they produced, never tied to later builds.
   // The newest card follows the live app (including an auto-fix of its build) and shows its checks.
-  const done = id != null && !latest;
+  // An older card whose build is still running (a change queued behind it) keeps following until its version lands.
+  const pending = ["generating", "building", "fixing"].includes(app.status) && app.version <= (payload.fromVersion ?? 0);
+  const done = id != null && !latest && !pending;
   const shown = done ? { ...app, status: "ready" as const, version: (payload.fromVersion ?? 0) + 1, error: null } : app;
   return <AppCardView app={shown} change={payload.change} specs={payload.specs} checks={latest && !done ? app.checks : null} />;
 }
