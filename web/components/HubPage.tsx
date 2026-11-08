@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp } from "lucide-react";
 import { sendChat, useStore, type ChatItem } from "../store";
 import { AppCard, ConnectorCard, EventLine, HireCard, ReportCard } from "./cards";
@@ -114,6 +114,36 @@ const CHIPS = [
   { label: "Show me the numbers", text: "Show me the numbers: what would automating this be worth for us?" },
 ];
 
+/** The §12 demo messages (02-demo-spec.md). Shift+1…8 puts message N in the composer; Enter still sends. */
+export const DEMO_MESSAGES = [
+  "I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place.",
+  "The hardest part is inventory management and intake. We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service. Deliveries come in all week, the invoices arrive by email, and someone has to copy them into the notebook by hand.",
+  "Petar spends about 5 hours a week copying invoices, and we run out of something two or three times a week. We do around 120 covers a day and spend about €9,000 a month on food.",
+  "Yes, let's start with that.",
+  "Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. Right now we have 4 kg tomatoes (need 10), 2 kg feta (need 5), 6 L olive oil (need 10), 3 kg lemons (need 4), 2 bunches of basil (need 5), 1.5 kg garlic (need 1), 4 kg Kalamata olives (need 2), 5 kg chicken thighs (need 8), 3 kg lamb shoulder (need 4), 18 kg flour (need 10), 3 kg arborio rice (need 5) and 4 kg sea salt (need 2).",
+  "I need someone to pull supplier invoices from Gmail and update stock.",
+  "Add a reorder note column to Inventory.",
+  "Some suppliers hand me paper invoices. I'd like to drop a photo of one into Inventory and have the stock update.",
+];
+
+/** Shift+digit fills the composer, but only when it's empty or nothing else editable has focus, so a typed "!" still works. */
+function useDemoHotkeys(draft: string, setDraft: (s: string) => void, ta: RefObject<HTMLTextAreaElement | null>) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const m = /^Digit([1-8])$/.exec(e.code);
+      if (!m || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.repeat) return;
+      const el = document.activeElement as HTMLElement | null;
+      const editable = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      if (editable && !(el === ta.current && !draft)) return;
+      e.preventDefault();
+      setDraft(DEMO_MESSAGES[Number(m[1]) - 1]);
+      ta.current?.focus();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [draft, setDraft, ta]);
+}
+
 function greeting() {
   const h = new Date().getHours();
   return h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -132,6 +162,7 @@ export function Composer({ onSent, autoFocus, draft, setDraft }: { onSent?: () =
   useEffect(() => {
     if (autoFocus) ta.current?.focus();
   }, [autoFocus]);
+  useDemoHotkeys(draft, setDraft, ta);
   const canSend = !!draft.trim() && !busy && !sending;
   const send = async () => {
     if (!canSend) return;
