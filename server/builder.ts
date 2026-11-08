@@ -1,20 +1,15 @@
 // App builder: Claude writes one App.tsx (structured output) → Bun.build → promote a new version.
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { client, logUsage, requestOptions } from "./claude";
 import { publish } from "./bus";
 import {
-  DATA_DIR, MOCK, countRecords, getApp, insertRecord, listKnowledge, patchApp, type App, type Collection,
+  DATA_DIR, MOCK, getApp, listKnowledge, patchApp, type App, type Collection,
 } from "./db";
 import { diffCount, pendingSpecChanges, writeSpec, type SpecDiff } from "./spec";
 import { prepareChecks, type Check } from "./checks";
+import { RUNTIME } from "./bunBuild";
+import { platform } from "./platform";
 
-const ROOT = resolve(import.meta.dir, "..");
-const RUNTIME = {
-  "@bos/sdk": `${ROOT}/runtime/sdk.ts`,
-  "@bos/ui": `${ROOT}/runtime/ui.tsx`,
-  "@bos/entry": `${ROOT}/runtime/entry.tsx`,
-};
 export const STEPS = ["Designing your app", "Writing the app", "Packaging", "Ready"] as const;
 
 export const UI_API = (() => {
@@ -259,28 +254,10 @@ function seedProblem(out: BuildOutput, spec: string): string | null {
   return null;
 }
 
-export async function bundle(dir: string) {
-  // @bos/entry first: its error listeners must exist before App.tsx's top-level code runs.
-  writeFileSync(`${dir}/entry.tsx`, `import { mount } from "@bos/entry";\nimport App from "./App.tsx";\nmount(App);\n`);
-  const result = await Bun.build({
-    entrypoints: [`${dir}/entry.tsx`],
-    outdir: dir,
-    target: "browser",
-    naming: "app.js",
-    throw: false, // return errors so the retry loop can feed them back to the model
-    minify: { whitespace: true, syntax: true },
-    define: { "process.env.NODE_ENV": '"production"' },
-    plugins: [
-      {
-        name: "bos-runtime",
-        setup(b) {
-          b.onResolve({ filter: /^@bos\/(sdk|ui|entry)$/ }, (args) => ({ path: RUNTIME[args.path as keyof typeof RUNTIME] }));
-        },
-      },
-    ],
-  });
-  if (result.success) return null;
-  return result.logs.map((l: any) => String(l.message ?? l) + (l.position ? ` (line ${l.position.line}:${l.position.column}: ${l.position.lineText?.trim()})` : "")).join("\n").slice(0, 4000);
+/** Bundles a version dir through the BuildRunner; returns the error text for the retry loop, or null. */
+export async function bundleError(dir: string) {
+  const r = await platform.builds.bundle(dir);
+  return r.ok ? null : r.error;
 }
 
 async function build(slug: string, reason: BuildReason) {
@@ -312,7 +289,7 @@ async function build(slug: string, reason: BuildReason) {
 
     setStatus(slug, { status: fixing ? "fixing" : "building", step: STEPS[2] });
     writeFileSync(`${dir}/App.tsx`, out.code);
-    const err = lint(out.code) ?? (prevVersion === 0 ? seedProblem(out, app.spec) : null) ?? (await bundle(dir));
+    const err = lint(out.code) ?? (prevVersion === 0 ? seedProblem(out, app.spec) : null) ?? (await bundleError(dir));
     if (!err) {
       // A version produced by an auto-fix never gets another one, so a fix that still crashes can't loop.
       if (fixing) autoFixed.add(`${slug}@v${next}`);
@@ -349,8 +326,8 @@ function promote(slug: string, version: number, out: BuildOutput, first: boolean
   if (first) {
     for (const c of out.collections) {
       const rows = out.seed?.[c.name];
-      if (Array.isArray(rows) && countRecords(slug, c.name) === 0) {
-        for (const r of rows) insertRecord(slug, c.name, r);
+      if (Array.isArray(rows) && platform.records.count(slug, c.name) === 0) {
+        for (const r of rows) platform.records.insert(slug, c.name, r);
         seeded.push(c.name);
       }
     }

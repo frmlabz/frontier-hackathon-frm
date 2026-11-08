@@ -1,10 +1,11 @@
 // BOS_MOCK=1: scripted CEO / builder / employee for free UX work. Everything else is the real code path.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { getKnowledge, isConnected, listApps, listPeople, listRecords, listReports, kv, type App, type Person } from "./db";
+import { getKnowledge, isConnected, listApps, listPeople, listReports, kv, type App, type Person } from "./db";
 import type { BuildOutput } from "./builder";
 import type { Job } from "./ceo";
 import { addSpecBlock } from "./spec";
+import { platform } from "./platform";
 import { strongestFinding, validateReport, type ResearchRequest, type Submission, type Validated } from "./report";
 import reportFixture from "../fixtures/research/report.json";
 import demoRequest from "../fixtures/research/request.json";
@@ -18,7 +19,7 @@ export async function mockGenerate(app: App, onWriting: () => void): Promise<Bui
   onWriting();
   await sleep(2600);
   const key = existsSync(`${ROOT}/fixtures/apps/${app.slug}/App.tsx`) ? app.slug : /inventor|stock/i.test(app.name) ? "inventory" : "generic";
-  // The photo-import variant once the spec asks for it (Stretch B).
+  // The photo-import variant once the spec asks for it.
   const variant = key === "inventory" && /photo/i.test(app.spec ?? "") ? "App.photo.tsx" : "App.tsx";
   let code = readFileSync(`${ROOT}/fixtures/apps/${key}/${variant}`, "utf8");
   const meta = JSON.parse(readFileSync(`${ROOT}/fixtures/apps/${key}/meta.json`, "utf8"));
@@ -244,31 +245,31 @@ const INVOICE_LINES: Record<string, { name: string; qty: number; unit: string; c
 export async function mockEmployeeRun(p: Person, tool: (name: string, input: any) => any): Promise<string> {
   const app = listApps().find((a) => /inventor/i.test(a.name));
   await sleep(900);
-  const results: any = tool("gmail_search", { query: "invoice delivery", max: 10 });
+  const results: any = await tool("gmail_search", { query: "invoice delivery", max: 10 });
   if (results?.error) return "Gmail was disconnected, so I stopped before reading any invoices.";
   const applied: string[] = [];
   let invoices = 0;
   for (const r of results) {
     await sleep(1100);
-    const msg = tool("gmail_read", { id: r.id });
+    const msg = await tool("gmail_read", { id: r.id });
     if (msg?.error) return `Gmail was disconnected, so I stopped after ${invoices} invoice${invoices === 1 ? "" : "s"}.`;
     const lines = INVOICE_LINES[r.id];
     if (!lines || !app) {
       await sleep(500);
-      tool("log", { text: `Skipped “${msg.subject}” — not a supplier invoice` });
-      tool("mark_processed", { message_id: r.id });
+      await tool("log", { text: `Skipped “${msg.subject}” — not a supplier invoice` });
+      await tool("mark_processed", { message_id: r.id });
       continue;
     }
     invoices++;
-    const current = listRecords(app.slug, "ingredients");
+    const current = platform.records.list(app.slug, "ingredients");
     for (const l of lines) {
       await sleep(650);
       const ex = current.find((c: any) => String(c.name).toLowerCase() === l.name.toLowerCase());
-      if (ex) tool("upsert_records", { app: app.slug, collection: "ingredients", records: [{ id: ex.id, quantity: Number(ex.quantity ?? 0) + l.qty }] });
-      else tool("upsert_records", { app: app.slug, collection: "ingredients", records: [{ name: l.name, category: l.category, quantity: l.qty, unit: l.unit, supplier: l.supplier }] });
+      if (ex) await tool("upsert_records", { app: app.slug, collection: "ingredients", records: [{ id: ex.id, quantity: Number(ex.quantity ?? 0) + l.qty }] });
+      else await tool("upsert_records", { app: app.slug, collection: "ingredients", records: [{ name: l.name, category: l.category, quantity: l.qty, unit: l.unit, supplier: l.supplier }] });
       if (applied.length < 3) applied.push(`+${l.qty} ${l.unit} ${l.name.toLowerCase()}`);
     }
-    tool("mark_processed", { message_id: r.id });
+    await tool("mark_processed", { message_id: r.id });
   }
   const total = Object.entries(INVOICE_LINES).filter(([id]) => results.some((r: any) => r.id === id)).reduce((n, [, l]) => n + l.length, 0);
   if (!invoices) return "No new supplier invoices in Gmail — stock is up to date.";

@@ -88,7 +88,7 @@ function SpecEditor({ slug, initial, onDone }: { slug: string; initial: string; 
   );
 }
 
-/** Stretch A: the app's spec, the source of truth the code is generated from. */
+/** The app's spec, the source of truth the code is generated from. */
 export function SpecView({ app }: { app: App }) {
   const body = stripFrontmatter(app.spec ?? "").trim();
   const working = ["generating", "building", "fixing"].includes(app.status);

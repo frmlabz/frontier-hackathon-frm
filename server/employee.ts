@@ -2,10 +2,11 @@
 import { client, logUsage, requestOptions } from "./claude";
 import { publish } from "./bus";
 import {
-  MOCK, addActivity, getApp, isConnected, getPerson, getRecord, insertChatItem, insertRecord, listApps, listKnowledge, listRecords,
-  markProcessed, setPersonStatus, updateRecord, type Person,
+  MOCK, addActivity, getApp, isConnected, getPerson, insertChatItem, listApps, listKnowledge,
+  markProcessed, setPersonStatus, type Person,
 } from "./db";
-import { gmailRead, gmailSearch } from "./mockGmail";
+import { platform } from "./platform";
+import { workspace } from "./workspace";
 
 const running = new Set<string>();
 export const isRunning = (id: string) => running.has(id);
@@ -60,7 +61,7 @@ const TOOLS = [
   },
   {
     name: "log",
-    description: "Post one short line to your activity feed, which Marko sees live (e.g. a skipped email or a line you couldn't apply).",
+    description: "Post one short line to your activity feed, which the owner sees live (e.g. a skipped email or a line you couldn't apply).",
     input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   },
 ];
@@ -82,8 +83,8 @@ function describeChange(before: any, after: any, unitOf: (k: string) => string, 
 }
 
 /** Executes one employee tool. Shared by the real loop and mock mode. */
-export function runEmployeeTool(p: Person, name: string, input: any): any {
-  // Marko can disconnect Gmail mid-run; the next Gmail read stops the employee. mark_processed stays
+export async function runEmployeeTool(p: Person, name: string, input: any): Promise<any> {
+  // The owner can disconnect Gmail mid-run; the next Gmail read stops the employee. mark_processed stays
   // allowed so an invoice already applied to stock is still marked done and a rerun doesn't import it twice.
   if ((name === "gmail_search" || name === "gmail_read") && !isConnected("gmail")) {
     log(p.id, "Gmail was disconnected, stopping.");
@@ -91,18 +92,18 @@ export function runEmployeeTool(p: Person, name: string, input: any): any {
   }
   switch (name) {
     case "gmail_search": {
-      const res = gmailSearch(input.query, input.max);
+      const res = await platform.mail.search(input.query, input.max);
       log(p.id, `Searched Gmail for “${input.query}” · ${res.length} result${res.length === 1 ? "" : "s"}`);
       return res;
     }
     case "gmail_read": {
-      const m = gmailRead(input.id);
+      const m = await platform.mail.read(input.id);
       if (!m) return { error: "not found" };
       log(p.id, `Reading “${m.subject}”`);
       return m;
     }
     case "list_records":
-      return listRecords(input.app, input.collection);
+      return platform.records.list(input.app, input.collection);
     case "upsert_records": {
       const app = getApp(input.app);
       if (!app) return { error: `No app ${input.app}. Apps: ${listApps().map((a) => a.slug).join(", ")}` };
@@ -112,16 +113,16 @@ export function runEmployeeTool(p: Person, name: string, input: any): any {
         // No id but a same-named record exists → treat as an update (prevents duplicate rows).
         const key = ["name", "item", "ingredient", "title"].find((k) => typeof r[k] === "string");
         const byName = !r.id && key
-          ? listRecords(app.slug, input.collection).find((x) => String(x[key] ?? "").trim().toLowerCase() === r[key].trim().toLowerCase())
+          ? platform.records.list(app.slug, input.collection).find((x) => String(x[key] ?? "").trim().toLowerCase() === r[key].trim().toLowerCase())
           : null;
-        const before = r.id ? getRecord(app.slug, input.collection, String(r.id)) : byName;
+        const before = r.id ? platform.records.get(app.slug, input.collection, String(r.id)) : byName;
         if (before) {
-          const after = updateRecord(app.slug, input.collection, before.id, r)!;
+          const after = platform.records.update(app.slug, input.collection, before.id, r)!;
           const d = describeChange(before, r, unitOf, after);
           if (d) log(p.id, `Updated ${label(after)}: ${d}`);
           out.push(after);
         } else {
-          const rec = insertRecord(app.slug, input.collection, r);
+          const rec = platform.records.insert(app.slug, input.collection, r);
           log(p.id, `Added ${label(rec)} to ${app.name}`);
           out.push(rec);
         }
@@ -132,8 +133,8 @@ export function runEmployeeTool(p: Person, name: string, input: any): any {
     case "update_record": {
       const app = getApp(input.app);
       if (!app) return { error: `No app ${input.app}` };
-      const before = getRecord(app.slug, input.collection, input.id);
-      const after = updateRecord(app.slug, input.collection, input.id, input.patch ?? {});
+      const before = platform.records.get(app.slug, input.collection, input.id);
+      const after = platform.records.update(app.slug, input.collection, input.id, input.patch ?? {});
       if (!after) return { error: "record not found" };
       const unitOf = (k: string) => app.schema?.find((c) => c.name === input.collection)?.fields.find((f) => f.name === k)?.unit ?? "";
       const d = describeChange(before, input.patch ?? {}, unitOf, after);
@@ -157,7 +158,7 @@ function system(p: Person) {
     .filter((a) => a.schema)
     .map((a) => `- ${a.emoji} ${a.name} (slug "${a.slug}"): ${a.schema!.map((c) => `collection "${c.name}" fields ${c.fields.map((f) => `${f.name}:${f.type}${f.unit ? `(${f.unit})` : ""}`).join(", ")}`).join("; ")}`)
     .join("\n");
-  return `You are ${p.name}, an AI employee at Marko's Bistro. Role: ${p.role}. You work on your own: nobody is available to answer questions during a run, so decide carefully, change only what you're sure of, and leave a short log line for anything Marko should look at.
+  return `You are ${p.name}, an AI employee at ${workspace().name}. Role: ${p.role}. You work on your own: nobody is available to answer questions during a run, so decide carefully, change only what you're sure of, and leave a short log line for anything the owner should look at.
 
 Your standing instructions from the CEO:
 ${p.instructions}
@@ -175,12 +176,12 @@ How to work:
    - When nothing matches, add a new record with only what the invoice states (name, quantity, unit, and the sending supplier when the app has a supplier field). Leave every other field unset, minimums included. Never invent values.
    - Write only fields that exist in the app's schema. Numbers are numbers.
 5. Right after applying an email, call mark_processed for it. Process each email exactly once.
-6. Use log sparingly, for decisions Marko should see. Your searches, reads and record changes are already shown in your activity feed.
+6. Use log sparingly, for decisions the owner should see. Your searches, reads and record changes are already shown in your activity feed.
 
 Business knowledge:
 ${knowledge || "(none yet)"}
 
-Your final message is posted in Marko's chat, so it overrides any "summarize" instruction above: ONE plain sentence, at most 35 words, saying what changed, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble. Anything else he should know goes in a short log line instead.`;
+Your final message is posted in the owner's chat, so it overrides any "summarize" instruction above: ONE plain sentence, at most 35 words, saying what changed, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble. Anything else he should know goes in a short log line instead.`;
 }
 
 export function startEmployee(personId: string, task: string) {
@@ -232,15 +233,16 @@ async function loop(p: Person, task: string) {
     if (text) last = text;
     const uses = msg.content.filter((b: any) => b.type === "tool_use");
     if (!uses.length || msg.stop_reason !== "tool_use") break;
-    const results = uses.map((u: any) => {
+    const results: any[] = [];
+    for (const u of uses) {
       let out: any;
       try {
-        out = runEmployeeTool(p, u.name, u.input ?? {});
+        out = await runEmployeeTool(p, u.name, u.input ?? {});
       } catch (e: any) {
         out = { error: String(e?.message ?? e) };
       }
-      return { type: "tool_result", tool_use_id: u.id, content: JSON.stringify(out), ...(out?.error ? { is_error: true } : {}) };
-    });
+      results.push({ type: "tool_result", tool_use_id: u.id, content: JSON.stringify(out), ...(out?.error ? { is_error: true } : {}) });
+    }
     messages.push({ role: "user", content: results });
   }
   return last;

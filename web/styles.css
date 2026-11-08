@@ -91,7 +91,7 @@ button, [role="button"], summary, label {
 .md-chat { font-size: 15px; }
 .md-chat h1, .md-chat h2, .md-chat h3 { font-size: 1.05em; margin: 0.8em 0 0.2em; }
 
-/* Stretch A: app spec page */
+/* App spec page */
 .md-spec h2 { font-size: 1.25em; margin-top: 1.6em; padding-bottom: 0.25em; border-bottom: 1px solid var(--color-hairline); }
 .md-spec .spec-block { display: flex; align-items: baseline; gap: 10px; font-size: 1.05em; margin: 1.1em 0 0.15em; }
 .md-spec .spec-id { font-size: 12px; font-weight: 400; color: var(--color-faint); background: none; padding: 0; }

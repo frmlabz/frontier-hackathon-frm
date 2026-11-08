@@ -1,8 +1,9 @@
-// Stretch B: ai.extract(file, instructions) for generated apps. One Claude vision call reads a photo or PDF and
+// ai.extract(file, instructions) for generated apps. One Claude vision call reads a photo or PDF and
 // returns JSON shaped as the app's instructions describe. The app's current records go along, so a line like
 // "San Marzano tomatoes" comes back as the existing "Tomatoes".
 import { MODEL, client, logUsage, textOf } from "./claude";
-import { getApp, listRecords } from "./db";
+import { getApp } from "./db";
+import { platform } from "./platform";
 
 const MOCK = process.env.BOS_MOCK === "1";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -42,7 +43,7 @@ export async function extract(input: { file?: string; mediaType?: string; instru
   const app = getApp(slug);
   const records: Record<string, string[]> = {};
   for (const c of app?.schema ?? []) {
-    records[c.name] = listRecords(slug, c.name)
+    records[c.name] = platform.records.list(slug, c.name)
       .slice(0, 80)
       .map((r: any) => String(r.name ?? r.title ?? ""))
       .filter(Boolean);

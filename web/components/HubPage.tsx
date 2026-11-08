@@ -209,7 +209,7 @@ export function Composer({ onSent, autoFocus, draft, setDraft }: { onSent?: () =
 }
 
 export function HubPage() {
-  const { chat, live, liveKey, itemKeys, busy, loaded } = useStore();
+  const { chat, live, liveKey, itemKeys, busy, loaded, workspace } = useStore();
   const [draft, setDraft] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -248,7 +248,7 @@ export function HubPage() {
             <div className="flex-1 flex flex-col items-center justify-center text-center pb-10 anim-fade-up">
               <CeoAvatar size={44} />
               <h1 className="mt-5 text-[30px] font-semibold tracking-[-0.02em] text-ink-strong leading-tight">
-                {greeting()}, Marko.
+                {greeting()}{workspace.owner.name ? `, ${workspace.owner.name}` : ""}.
                 <br />
                 <span className="text-faint">What are we working on?</span>
               </h1>

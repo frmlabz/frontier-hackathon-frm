@@ -1,9 +1,10 @@
-// Stretch A, step 4: acceptance checks. After each build, one cheap Claude call turns the spec's Acceptance list
+// Acceptance checks. After each build, one cheap Claude call turns the spec's Acceptance list
 // into DOM text checks that hold for the app's current data. The shell runs them in a hidden iframe (bos:check)
 // and posts the results back; failures trigger one auto-fix rebuild.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { client, logUsage } from "./claude";
-import { DATA_DIR, getApp, listRecords, type App } from "./db";
+import { DATA_DIR, getApp, type App } from "./db";
+import { platform } from "./platform";
 import { stripFrontmatter } from "./spec";
 
 const MOCK = process.env.BOS_MOCK === "1";
@@ -33,7 +34,7 @@ export function acceptanceLines(spec: string): string[] {
 /** Current rows of each collection, trimmed, so checks are written against what the app shows now (not just the seed). */
 function dataSample(app: App) {
   const out: Record<string, any[]> = {};
-  for (const c of app.schema ?? []) out[c.name] = listRecords(app.slug, c.name).slice(0, 40).map(({ id, createdAt, updatedAt, ...r }: any) => r);
+  for (const c of app.schema ?? []) out[c.name] = platform.records.list(app.slug, c.name).slice(0, 40).map(({ id, createdAt, updatedAt, ...r }: any) => r);
   return out;
 }
 
@@ -46,7 +47,7 @@ const SCHEMA = {
         type: "object",
         properties: {
           id: { type: "string", description: "The spec block id the line starts with, e.g. low-stock-alert" },
-          label: { type: "string", description: "Short plain-words label for Marko, max 6 words, e.g. Tomatoes flagged Low" },
+          label: { type: "string", description: "Short plain-words label for the owner, max 6 words, e.g. Tomatoes flagged Low" },
           row: { type: ["string", "null"], description: "Exact text identifying one table row or card (usually the item name), or null for a page-wide check" },
           text: { type: "string", description: "Exact visible text that must appear (in that row, if row is set)" },
         },
@@ -130,7 +131,7 @@ export async function prepareChecks(slug: string): Promise<boolean> {
 /** True if any record of the app changed after the checks were written (e.g. an invoice import landed meanwhile). */
 export function dataChangedSince(slug: string, at: number) {
   const app = getApp(slug);
-  return (app?.schema ?? []).some((c) => listRecords(slug, c.name).some((r: any) => (r.updatedAt ?? 0) > at));
+  return (app?.schema ?? []).some((c) => platform.records.list(slug, c.name).some((r: any) => (r.updatedAt ?? 0) > at));
 }
 
 /** Records the first result set for a version. Returns the failed checks (empty if none, or already recorded). */

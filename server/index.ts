@@ -3,11 +3,11 @@ import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { publish, setServer, TOPIC } from "./bus";
 import {
-  DATA_DIR, MOCK, connect, createApp, deleteRecord, disconnect, getApp, insertChatItem, insertRecord, kv, listConnectors, listRecords,
-  snapshot, updateRecord,
+  DATA_DIR, MOCK, connect, createApp, disconnect, getApp, insertChatItem, kv, listConnectors, snapshot,
 } from "./db";
+import { platform } from "./platform";
 import { getConnector } from "./connectors";
-import { autoFix, bundle, checkFix, startBuild } from "./builder";
+import { autoFix, bundleError, checkFix, startBuild } from "./builder";
 import { dataChangedSince, getChecks, prepareChecks, recordResults } from "./checks";
 import { specChangeIds } from "./spec";
 import { applySpecEdit, enqueue, isBusy } from "./ceo";
@@ -47,7 +47,7 @@ async function buildKit() {
   const dir = `${DATA_DIR}/kit`;
   mkdirSync(dir, { recursive: true });
   copyFileSync(`${ROOT}/fixtures/kit/App.tsx`, `${dir}/App.tsx`);
-  return bundle(dir);
+  return bundleError(dir);
 }
 
 function appHtml(src: string) {
@@ -102,7 +102,7 @@ const server = Bun.serve({
       },
     },
 
-    // Stretch B: apps read photos/PDFs (e.g. a paper invoice) into JSON.
+    // Apps read photos/PDFs (e.g. a paper invoice) into JSON.
     "/api/ai/extract": {
       POST: async (req) => {
         try {
@@ -129,7 +129,7 @@ const server = Bun.serve({
       },
     },
 
-    // Stretch A: Marko edits the spec on the Spec tab; the app regenerates from it.
+    // The owner edits the spec on the Spec tab; the app regenerates from it.
     "/api/apps/:slug/spec": {
       PUT: async (req) => {
         const { markdown = "" } = await body(req);
@@ -151,6 +151,7 @@ const server = Bun.serve({
           return json({ ok: true, rechecking: true });
         }
         const failed = recordResults(slug, Number(version), results);
+        platform.telemetry.signal({ type: "app.checks", app: slug, version: Number(version), passed: Object.values(results).filter(Boolean).length, failed: failed.map((c) => c.id) });
         publish({ type: "state.changed" });
         const fixing = failed.length ? checkFix(slug, failed) : false;
         return json({ ok: true, failed: failed.length, fixing });
@@ -160,18 +161,19 @@ const server = Bun.serve({
     "/api/apps/:slug/error": {
       POST: async (req) => {
         const { message = "", stack = "" } = await body(req);
+        platform.telemetry.signal({ type: "app.error", app: req.params.slug, version: getApp(req.params.slug)?.version ?? 0, message: String(message).slice(0, 500) });
         const started = autoFix(req.params.slug, String(message), String(stack));
         return json({ ok: true, fixing: started });
       },
     },
 
     "/api/apps/:slug/:coll": {
-      GET: (req) => json(listRecords(req.params.slug, req.params.coll)),
+      GET: (req) => json(platform.records.list(req.params.slug, req.params.coll)),
       POST: async (req) => {
         const { slug, coll } = req.params;
         if (!getApp(slug)) return json({ error: "no such app" }, 404);
         const { data = {}, id } = await body(req);
-        const rec = insertRecord(slug, coll, data, id);
+        const rec = platform.records.insert(slug, coll, data, id);
         publish({ type: "records.changed", app: slug, collection: coll });
         return json(rec, 201);
       },
@@ -181,14 +183,14 @@ const server = Bun.serve({
       PATCH: async (req) => {
         const { slug, coll, id } = req.params;
         const { patch = {} } = await body(req);
-        const rec = updateRecord(slug, coll, id, patch);
+        const rec = platform.records.update(slug, coll, id, patch);
         if (!rec) return json({ error: "not found" }, 404);
         publish({ type: "records.changed", app: slug, collection: coll });
         return json(rec);
       },
       DELETE: (req) => {
         const { slug, coll, id } = req.params;
-        deleteRecord(slug, coll, id);
+        platform.records.remove(slug, coll, id);
         publish({ type: "records.changed", app: slug, collection: coll });
         return new Response(null, { status: 204 });
       },

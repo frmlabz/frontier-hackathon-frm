@@ -32,14 +32,14 @@ function Section({ title, children, empty }: { title: string; children: ReactNod
 }
 
 export function Sidebar() {
-  const { path, knowledge, apps, reports, unread } = useStore();
+  const { path, knowledge, apps, reports, unread, workspace } = useStore();
   useStore((s) => s.fresh); // re-render when something new arrives
   return (
     <aside className="w-[240px] shrink-0 h-full bg-sidebar border-r border-hairline flex flex-col select-none">
       <div className="px-1 pt-1.5">
         <div className="flex items-center gap-2 h-[34px] px-2 mx-0 rounded-[4px] hover:bg-hover cursor-default">
           <span className="w-5 h-5 rounded-[4px] bg-[#fdecc8] flex items-center justify-center text-[13px]">🍋</span>
-          <span className="text-[14px] font-semibold text-ink-strong truncate flex-1">Marko's Bistro</span>
+          <span className="text-[14px] font-semibold text-ink-strong truncate flex-1">{workspace.name}</span>
           <ChevronsUpDown size={14} className="text-faint" />
         </div>
       </div>

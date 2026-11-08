@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { seedEmails } from "./seed";
 import type { ReportRow, ResearchRequest } from "./report";
+import { workspace } from "./workspace";
 
 // Mock mode gets its own data dir so scripted runs never leak into the real demo DB.
 export const MOCK = process.env.BOS_MOCK === "1";
@@ -40,27 +41,12 @@ CREATE TABLE IF NOT EXISTS reports(
 // A research run doesn't survive a restart; its card shows it failed (no CEO event).
 db.exec("UPDATE reports SET status='failed', error='Stopped when the server restarted' WHERE status='researching'");
 try {
-  db.exec("ALTER TABLE apps RENAME COLUMN requirements TO spec"); // DBs from before Stretch A
+  db.exec("ALTER TABLE apps RENAME COLUMN requirements TO spec"); // DBs from before app specs
 } catch {}
 
-// ---------- types ----------
-export type ChatItem = { id: number; kind: string; payload: any; createdAt: number };
-export type Field = { name: string; type: "text" | "number" | "date" | "boolean"; unit?: string | null };
-export type Collection = { name: string; fields: Field[] };
-export type App = {
-  slug: string; name: string; emoji: string; description: string; spec: string;
-  schema: Collection[] | null; status: string; version: number; step: string; error: string | null; createdAt: number;
-  /** Spec blocks changed since the live version was built (added by /api/state). */
-  specChanges?: string[];
-  /** Acceptance checks for the live version (added by /api/state); results null until the shell has run them. */
-  checks?: { version: number; at: number; items: { id: string; label: string; row: string | null; text: string }[]; results: Record<string, boolean> | null } | null;
-};
-export type Person = {
-  id: string; kind: "human" | "ai"; name: string; role: string; emoji: string; color: string;
-  instructions: string; connectors: string[]; status: string; createdAt: number;
-};
-export type KnowledgePage = { slug: string; emoji: string; title: string; markdown: string; position: number; updatedAt: number };
-export type Rec = { id: string; createdAt: number; updatedAt: number; [k: string]: any };
+// ---------- types (defined in contracts/domain.ts) ----------
+import type { Activity, App, ChatItem, Collection, Email, Field, KnowledgePage, Person, Rec } from "../contracts/domain";
+export type { Activity, App, ChatItem, Collection, Email, Field, KnowledgePage, Person, Rec };
 
 const now = () => Date.now();
 export const slugify = (s: string, fallback: string) =>
@@ -209,7 +195,7 @@ export function createAiPerson(p: { name: string; role: string; emoji: string; c
   return getPerson(id)!;
 }
 const AVATAR_COLORS = ["#dd5b00", "#2a9d99", "#1aae39", "#62aef0", "#ff64c8", "#d6b6f6", "#523410", "#0075de"];
-/** Adds people Marko named to the Team (same name = update role/emoji). Returns the saved people. */
+/** Adds people the owner named to the Team (same name = update role/emoji). Returns the saved people. */
 export function upsertHumans(members: { name: string; role: string; emoji: string }[]): Person[] {
   const people = listPeople();
   return members.map((m) => {
@@ -232,7 +218,6 @@ export function upsertHumans(members: { name: string; role: string; emoji: strin
 export const setPersonStatus = (id: string, status: string) => db.query("UPDATE people SET status=? WHERE id=?").run(status, id);
 
 // ---------- activity ----------
-export type Activity = { id: number; personId: string; text: string; createdAt: number };
 export function addActivity(personId: string, text: string): Activity {
   const r = db.query("INSERT INTO activity(person_id, text, created_at) VALUES (?,?,?) RETURNING *").get(personId, text, now()) as any;
   return { id: r.id, personId: r.person_id, text: r.text, createdAt: r.created_at };
@@ -276,7 +261,6 @@ export const researchRunning = () => !!db.query("SELECT 1 FROM reports WHERE sta
 export const hasResearchOutcome = () => !!db.query("SELECT 1 FROM reports WHERE status IN ('ready','thin','failed')").get();
 
 // ---------- mock inbox ----------
-export type Email = { id: string; fromName: string; fromAddr: string; subject: string; body: string; receivedAt: number };
 const toEmail = (r: any): Email => ({ id: r.id, fromName: r.from_name, fromAddr: r.from_addr, subject: r.subject, body: r.body, receivedAt: r.received_at });
 export const listEmails = () => (db.query("SELECT * FROM emails ORDER BY received_at DESC").all() as any[]).map(toEmail);
 export const getEmail = (id: string) => {
@@ -290,6 +274,7 @@ export const markProcessed = (id: string, personId: string) =>
 export function snapshot() {
   return {
     mock: MOCK,
+    workspace: workspace(),
     knowledge: listKnowledge(),
     apps: listApps(),
     people: listPeople(),

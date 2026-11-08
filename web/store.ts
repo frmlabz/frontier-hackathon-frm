@@ -2,13 +2,15 @@ import { create } from "zustand";
 import type { Activity, App, ChatItem, KnowledgePage, Person } from "../server/db";
 import type { BusEvent } from "../server/bus";
 import type { ReportRow } from "../server/report";
+import type { WorkspaceProfile } from "../contracts/domain";
 
-export type { Activity, App, ChatItem, KnowledgePage, Person, ReportRow };
+export type { Activity, App, ChatItem, KnowledgePage, Person, ReportRow, WorkspaceProfile };
 export type Connector = { provider: string; account: string; connectedAt: number };
 
 type State = {
   loaded: boolean;
   mock: boolean;
+  workspace: WorkspaceProfile;
   model: string;
   online: boolean;
   knowledge: KnowledgePage[];
@@ -35,6 +37,7 @@ type State = {
 export const useStore = create<State>(() => ({
   loaded: false,
   mock: false,
+  workspace: { id: "", name: "", owner: { name: "", email: "" } },
   model: "",
   online: true,
   knowledge: [],
@@ -97,9 +100,11 @@ export async function refresh() {
     if (newKeys.length) markFresh(newKeys);
   }
   firstLoad = false;
+  if (s.workspace?.name) document.title = `${s.workspace.name} · Omni`;
   set({
     loaded: true,
     mock: s.mock,
+    workspace: s.workspace,
     model: s.model,
     knowledge: s.knowledge,
     apps: s.apps,
@@ -220,7 +225,7 @@ export async function disconnect(id: string) {
   return !!r?.ok;
 }
 
-/** Stretch A: save an edited spec; the server regenerates the app if a block that drives it changed. */
+/** Save an edited spec; the server regenerates the app if a block that drives it changed. */
 export async function saveSpec(slug: string, markdown: string): Promise<{ ok: boolean; message: string }> {
   const r = await fetch(`/api/apps/${slug}/spec`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown }) }).catch(() => null);
   const j = await r?.json().catch(() => null);

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useStore, type App } from "../store";
 
 /**
- * Stretch A: runs each app version's acceptance checks once, in an offscreen iframe, wherever Marko is in the shell.
+ * Runs each app version's acceptance checks once, in an offscreen iframe, wherever the owner is in the shell.
  * Results go to the server, which records them and starts one auto-fix if any failed.
  */
 export function CheckRunner() {

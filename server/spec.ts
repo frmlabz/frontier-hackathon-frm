@@ -1,4 +1,4 @@
-// Stretch A: the app spec is the source of truth and the code follows it.
+// The app spec is the source of truth and the code follows it.
 // The CEO writes the body (Definitions / Functional specs / Starter data / Acceptance); the server adds frontmatter.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { DATA_DIR, type App } from "./db";
@@ -8,13 +8,13 @@ export const SPEC_FORMAT = `## Definitions
 
 ## Functional specs
 ### list-supplies
-Marko sees every :Supply: in a table, lowest stock first, with a search box.
+The owner sees every :Supply: in a table, lowest stock first, with a search box.
 
 ### low-stock-alert
 A :Supply: whose quantity is at or below its minimum shows a red "Low" badge and is counted in a "Running low" stat. A :Supply: without a minimum is never Low.
 
 ### add-supply
-Marko can add a :Supply: from an "Add supply" form; only the name is required.
+The owner can add a :Supply: from an "Add supply" form; only the name is required.
 
 ## Starter data
 - Paper cups: 300 pcs, minimum 500 pcs, from CleanPro
@@ -85,7 +85,7 @@ export const hashSpec = (md: string) =>
 export type SpecDiff = { added: string[]; changed: string[]; removed: string[] };
 export const diffCount = (d: SpecDiff | null) => (d ? d.added.length + d.changed.length + d.removed.length : 0);
 
-/** Hashes the given version was built from (null for versions built before Stretch A). */
+/** Hashes the given version was built from (null for versions built before app specs). */
 export function builtHashes(slug: string, version: number): Record<string, string> | null {
   const dir = `${DATA_DIR}/apps/${slug}/v${version}`;
   if (existsSync(`${dir}/hashes.json`)) return JSON.parse(readFileSync(`${dir}/hashes.json`, "utf8"));

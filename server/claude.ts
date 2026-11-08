@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { jsonlTelemetry as telemetry } from "./telemetry";
 
 export const MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
 export const isOpus = MODEL.startsWith("claude-opus");
@@ -47,14 +47,10 @@ export function costOf(model: string, u: any, speed?: string) {
 
 export function logUsage(kind: string, msg: any, fast = isOpus) {
   try {
-    mkdirSync("logs", { recursive: true });
     const model = msg.model ?? MODEL;
     const usage = msg.usage ?? {};
     const speed = usage.speed ?? (fast ? "fast" : undefined);
-    appendFileSync(
-      "logs/usage.jsonl",
-      JSON.stringify({ ts: Date.now(), kind, model, speed, usage, cost: costOf(model, usage, speed) }) + "\n",
-    );
+    telemetry.usage({ kind, model, speed, usage, cost: costOf(model, usage, speed) });
   } catch (e) {
     console.error("usage log failed", e);
   }

@@ -1,4 +1,4 @@
-// The fake sign-in (04 A2). One dialog for the whole app: the Connectors page and the chat
+// The fake sign-in (docs/04-connectors-and-roi.md A2). One dialog for the whole app: the Connectors page and the chat
 // connector_card both call openConnector(id). Nothing leaves the app: Allow only posts {account} to our own
 // server. There is never a password field, and Escape / Cancel close without writing anything.
 import { useEffect, useState, type ReactNode } from "react";
@@ -8,7 +8,8 @@ import { getConnector, type Connector } from "../../server/connectors";
 import { BosMark, GoogleG, ProviderLogo, brandColor } from "../logos";
 import { Spinner, cx } from "./common";
 
-export const DEFAULT_ACCOUNT = "marko@markosbistro.com";
+/** The owner's address from the workspace profile; the account the fake sign-in offers first. */
+export const ownerAccount = () => useStore.getState().workspace.owner.email;
 const MIN_ALLOW_MS = 900;
 const G_BLUE = "#1a73e8";
 const G_FONT = { fontFamily: "Roboto, Arial, ui-sans-serif, system-ui, sans-serif" };
@@ -78,18 +79,19 @@ const validEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 function Initial({ email, size }: { email: string; size: number }) {
   return (
     <span className="rounded-full bg-[#00897b] text-white flex items-center justify-center shrink-0 font-medium select-none" style={{ width: size, height: size, fontSize: size * 0.48 }}>
-      {(email.trim()[0] ?? "M").toUpperCase()}
+      {(email.trim()[0] ?? "?").toUpperCase()}
     </span>
   );
 }
 
 // ---------- Google ----------
-export function GoogleSignIn({ connector, onAllow, onCancel, initialStep = "choose", initialEmail = DEFAULT_ACCOUNT, initialOther = false }: {
+export function GoogleSignIn({ connector, onAllow, onCancel, initialStep = "choose", initialEmail = ownerAccount(), initialOther = false }: {
   connector: Connector; onAllow: OnAllow; onCancel: () => void; initialStep?: "choose" | "consent"; initialEmail?: string; initialOther?: boolean;
 }) {
   const [step, setStep] = useState(initialStep);
   const [email, setEmail] = useState(initialEmail);
   const [other, setOther] = useState(initialOther);
+  const owner = useStore((s) => s.workspace.owner);
   const [draft, setDraft] = useState("");
   const { busy, error, setError, allow } = useAllow(onAllow);
   useEscape(onCancel, busy);
@@ -107,11 +109,11 @@ export function GoogleSignIn({ connector, onAllow, onCancel, initialStep = "choo
             <p className="mt-2 text-[16px]">to continue to <span className="font-medium text-[#1a73e8]">Business OS</span></p>
           </div>
           <div className="border-t border-[#dadce0]">
-            <button type="button" data-account={DEFAULT_ACCOUNT} onClick={() => pick(DEFAULT_ACCOUNT)} className="w-full flex items-center gap-3 px-6 sm:px-9 py-3 text-left hover:bg-[#f7f8f8] cursor-pointer border-b border-[#dadce0]">
-              <Initial email="M" size={28} />
+            <button type="button" data-account={owner.email} onClick={() => pick(owner.email)} className="w-full flex items-center gap-3 px-6 sm:px-9 py-3 text-left hover:bg-[#f7f8f8] cursor-pointer border-b border-[#dadce0]">
+              <Initial email={owner.name || owner.email} size={28} />
               <span className="min-w-0">
-                <span className="block text-[14px] font-medium leading-5">Marko</span>
-                <span className="block text-[12px] text-[#5f6368] leading-4 truncate">{DEFAULT_ACCOUNT}</span>
+                <span className="block text-[14px] font-medium leading-5">{owner.name}</span>
+                <span className="block text-[12px] text-[#5f6368] leading-4 truncate">{owner.email}</span>
               </span>
             </button>
             {other ? (
@@ -175,7 +177,7 @@ export function GoogleSignIn({ connector, onAllow, onCancel, initialStep = "choo
 
 // ---------- Every other provider ----------
 export function GenericConsent({ connector, onAllow, onCancel }: { connector: Connector; onAllow: OnAllow; onCancel: () => void }) {
-  const [account, setAccount] = useState(DEFAULT_ACCOUNT);
+  const [account, setAccount] = useState(ownerAccount);
   const { busy, error, setError, allow } = useAllow(onAllow);
   useEscape(onCancel, busy);
   const color = brandColor(connector.id);

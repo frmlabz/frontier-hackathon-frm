@@ -18,7 +18,7 @@ const reportError = (message: string, stack?: string) => {
 window.addEventListener("error", (e) => reportError(e.message, e.error?.stack));
 window.addEventListener("unhandledrejection", (e) => reportError(e.reason?.message ?? String(e.reason), e.reason?.stack));
 
-// Stretch A: acceptance checks from the spec, run against the rendered text (polls until they pass or 8s pass).
+// Acceptance checks from the spec, run against the rendered text (polls until they pass or 8s pass).
 type Check = { id: string; row: string | null; text: string };
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 function passes(c: Check) {

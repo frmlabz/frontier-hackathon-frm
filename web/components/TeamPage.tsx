@@ -126,7 +126,7 @@ export function PersonPage({ id }: { id: string }) {
             }) : <span className="text-faint">None</span>}
           </Prop>
         )}
-        {!ai && <Prop icon={<AtSign size={14} />} label="Email">{`${person.id}@markosbistro.com`}</Prop>}
+        {!ai && <Prop icon={<AtSign size={14} />} label="Email">{`${person.id}@${useStore.getState().workspace.owner.email.split("@")[1] ?? "example.com"}`}</Prop>}
         <Prop icon={<FileText size={14} />} label="Joined">{timeAgo(person.createdAt)}</Prop>
       </div>
       {ai && (

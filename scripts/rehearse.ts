@@ -136,7 +136,7 @@ if (JUMP) {
 const appNow = inv(await state());
 const coll = await mainColl(appNow);
 const before = coll ? await (await fetch(`${BASE}/api/apps/${appNow.slug}/${coll}`)).json() : [];
-const connectGmail = () => post("/api/connectors/gmail/connect", { account: "marko@markosbistro.com" });
+const connectGmail = async () => post("/api/connectors/gmail/connect", { account: (await state()).workspace.owner.email });
 if (GMAIL_FIRST) {
   log("connecting Gmail from the Connectors page");
   const n = ceoTexts(await state()).length;
@@ -195,7 +195,7 @@ if (STEP5 && appNow) {
   check(kept.length >= after.length, `data preserved (${kept.length} rows)`);
 }
 
-// ---- 6. photo import (Stretch B): the CEO adds it to the spec, then the app's ai.extract reads the fixture invoice
+// ---- 6. photo import : the CEO adds it to the spec, then the app's ai.extract reads the fixture invoice
 if (STEP6 && appNow) {
   const v = (await state()).apps.find((a: any) => a.slug === appNow.slug).version;
   await say("Some suppliers hand me paper invoices. I'd like to drop a photo of one into Inventory and have the stock update.");
