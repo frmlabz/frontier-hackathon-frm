@@ -71,10 +71,10 @@ ${JSON.stringify(data)}
 </current_data>
 
 Rules:
-- A check passes when \`text\` appears on the page, or inside the table row or card containing \`row\` when row is set. Matching is case-insensitive.
-- Checks must hold for the current data above, which may have changed since the line was written (stock gets delivered). Drop a line that is no longer true for this data; never invert it.
-- Use short texts the app certainly renders: an item name, a column header, a badge word like "Low", a button label. No digits at all: counts, totals and stat tiles change with the data. \`row\` is always an item name from the data, never a stat or section label.
-- One check per line at most. Skip lines that can't be checked from visible text.`;
+- A check passes when \`text\` appears on the page, or inside the table row or card containing \`row\` when row is set. Matching is case-insensitive. The page is checked once, right after it opens, with no clicks, so only text visible without interaction counts (not form labels inside a closed dialog).
+- Checks must hold for the current data above, which may have changed since the line was written (stock gets delivered). Work each line out against that data: an item is low only if both its quantity and its minimum are present and quantity ≤ minimum. Drop a line that is not true for this data, or that depends on a value the data doesn't have; never invert it.
+- Use short texts the app certainly renders: an item name, a column header, a badge word like "Low", a button label. No digits at all: counts, totals and stat tiles change with the data. \`row\` is always an item name exactly as it appears in the data, never a stat or section label.
+- One check per line at most. Skip lines that can't be checked from visible text. Returning no checks is fine.`;
   const msg: any = await client.beta.messages.create({
     model: CHECK_MODEL,
     max_tokens: 2000,

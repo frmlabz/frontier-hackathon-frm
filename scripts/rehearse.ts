@@ -61,13 +61,14 @@ log(`model ${s.model}${s.mock ? " (mock)" : ""}`);
 check(s.chat.length === 0 && s.apps.length === 0, "fresh DB: empty chat, no apps");
 
 // ---- 2. company context → knowledge pages
-await say("I run a small Mediterranean bistro with 8 people.");
-await say("Suppliers: Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. They all send invoices by email.");
-s = await say("Biggest pain is stock. We track it in a paper notebook, nobody updates it, and we keep running out of tomatoes and feta. We use tomatoes, feta, olive oil, flour, lemons, chicken, lamb, basil.");
+await say("I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place.");
+await say("The hardest part is inventory management and intake. We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service. Deliveries come in all week, the invoices arrive by email, and someone has to copy them into the notebook by hand.");
+s = await say("Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. Right now we have 4 kg tomatoes (need 10), 2 kg feta (need 5), 6 L olive oil (need 10), 3 kg lemons (need 4), 2 bunches of basil (need 5), 1.5 kg garlic (need 1), 4 kg Kalamata olives (need 2), 5 kg chicken thighs (need 8), 3 kg lamb shoulder (need 4), 18 kg flour (need 10), 3 kg arborio rice (need 5) and 4 kg sea salt (need 2).");
 check(s.knowledge.length >= 2, `knowledge pages created (${s.knowledge.map((k: any) => k.title).join(", ")})`);
 
 // ---- 3. inventory app (§12: the CEO proposes it and waits for a yes)
 check(!inv(s), "CEO proposed the app and waited for a yes");
+check(!s.people.some((p: any) => p.kind === "ai"), "nobody hired before the app exists");
 if (!inv(s)) s = await say("Yes, build that.");
 if (!inv(s)) s = await say("Yes please, build the Inventory app now.");
 const app = inv(s);

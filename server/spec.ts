@@ -4,20 +4,26 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { DATA_DIR, type App } from "./db";
 
 export const SPEC_FORMAT = `## Definitions
-- :Ingredient: — something the kitchen stocks; has name, quantity, unit, minimum, supplier.
+- :Supply: — something the business keeps in stock; has name, quantity, unit, minimum (same unit) and supplier.
 
 ## Functional specs
-### list-ingredients
-Marko sees every :Ingredient: in a table, lowest stock first, with a search box.
+### list-supplies
+Marko sees every :Supply: in a table, lowest stock first, with a search box.
 
 ### low-stock-alert
-An :Ingredient: at or below its minimum shows a red "Low" badge and is counted in a "Running low" stat.
+A :Supply: whose quantity is at or below its minimum shows a red "Low" badge and is counted in a "Running low" stat. A :Supply: without a minimum is never Low.
+
+### add-supply
+Marko can add a :Supply: from an "Add supply" form; only the name is required.
 
 ## Starter data
-Marko's ingredients: tomatoes, feta, olive oil, … with their suppliers. Realistic example stock and minimums; tomatoes and feta start below their minimum.
+- Paper cups: 300 pcs, minimum 500 pcs, from CleanPro
+- Napkins: 20 packs, minimum not given, from CleanPro
+- Dish soap: quantity not given, minimum not given, supplier not given
 
 ## Acceptance
-- low-stock-alert: Tomatoes shows "Low".`;
+- list-supplies: Dish soap is listed.
+- low-stock-alert: Paper cups shows "Low".`;
 
 export const stripFrontmatter = (md: string) => md.replace(/^---\n[\s\S]*?\n---\n*/, "");
 

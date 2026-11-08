@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
-import { seedEmails, seedHumans } from "./seed";
+import { seedEmails } from "./seed";
 
 // Mock mode gets its own data dir so scripted runs never leak into the real demo DB.
 export const MOCK = process.env.BOS_MOCK === "1";
@@ -54,10 +54,6 @@ export const slugify = (s: string, fallback: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || fallback;
 
 // ---------- seed ----------
-if ((db.query("SELECT COUNT(*) c FROM people").get() as any).c === 0) {
-  const ins = db.query("INSERT INTO people VALUES (?,?,?,?,?,?,?,?,?,?)");
-  seedHumans.forEach((h, i) => ins.run(h.id, "human", h.name, h.role, h.emoji, h.color, "", "[]", "idle", now() + i));
-}
 if ((db.query("SELECT COUNT(*) c FROM emails").get() as any).c === 0) {
   const ins = db.query("INSERT INTO emails VALUES (?,?,?,?,?,?)");
   for (const e of seedEmails) ins.run(e.id, e.fromName, e.fromAddr, e.subject, e.body, e.receivedAt);
@@ -197,6 +193,27 @@ export function createAiPerson(p: { name: string; role: string; emoji: string; c
     id, "ai", p.name, p.role, p.emoji, p.color, p.instructions, JSON.stringify(p.connectors), "idle", now(),
   );
   return getPerson(id)!;
+}
+const AVATAR_COLORS = ["#dd5b00", "#2a9d99", "#1aae39", "#62aef0", "#ff64c8", "#d6b6f6", "#523410", "#0075de"];
+/** Adds people Marko named to the Team (same name = update role/emoji). Returns the saved people. */
+export function upsertHumans(members: { name: string; role: string; emoji: string }[]): Person[] {
+  const people = listPeople();
+  return members.map((m) => {
+    const name = m.name.trim();
+    const existing = people.find((p) => p.kind === "human" && p.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      db.query("UPDATE people SET role=?, emoji=? WHERE id=?").run(m.role, m.emoji, existing.id);
+      return getPerson(existing.id)!;
+    }
+    const base = slugify(name, "person");
+    let id = base;
+    for (let i = 2; getPerson(id); i++) id = `${base}-${i}`;
+    const humans = listPeople().filter((p) => p.kind === "human").length;
+    db.query("INSERT INTO people VALUES (?,?,?,?,?,?,?,?,?,?)").run(
+      id, "human", name, m.role, m.emoji, AVATAR_COLORS[humans % AVATAR_COLORS.length], "", "[]", "idle", now(),
+    );
+    return getPerson(id)!;
+  });
 }
 export const setPersonStatus = (id: string, status: string) => db.query("UPDATE people SET status=? WHERE id=?").run(status, id);
 

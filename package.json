@@ -14,6 +14,7 @@
     "seeded": "bun scripts/seed.ts restore && BOS_MOCK=1 PORT=3001 bun --hot server/index.ts",
     "mock": "BOS_MOCK=1 bun --hot server/index.ts",
     "cost": "bun scripts/cost.ts",
+    "prompts:doc": "bun scripts/prompts-doc.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {

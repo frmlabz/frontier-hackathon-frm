@@ -33,7 +33,7 @@ const TOOLS = [
   },
   {
     name: "upsert_records",
-    description: "Write records to an app collection. A record with an existing id is shallow-merged (send only changed fields); without id it is inserted. Use the app's field names; numbers as numbers.",
+    description: "Write records to an app collection. A record with an existing id is shallow-merged: send only the changed fields, with stock as the new total (current + delivered). A record without id is inserted, or merged into the existing record with the same name. Use the app's field names; numbers as numbers; leave out values you don't know.",
     input_schema: {
       type: "object",
       properties: {
@@ -46,7 +46,7 @@ const TOOLS = [
   },
   {
     name: "update_record",
-    description: "Shallow-merge a patch into one record.",
+    description: "Shallow-merge a patch into one record by id (send only the changed fields).",
     input_schema: {
       type: "object",
       properties: { app: { type: "string" }, collection: { type: "string" }, id: { type: "string" }, patch: { type: "object", additionalProperties: true } },
@@ -55,12 +55,12 @@ const TOOLS = [
   },
   {
     name: "mark_processed",
-    description: "Mark an email as handled so it is never applied twice. Call right after applying it (or deciding it's not relevant).",
+    description: "Mark an email as handled so it is never applied twice. Call it right after applying the email, or after deciding to skip it.",
     input_schema: { type: "object", properties: { message_id: { type: "string" } }, required: ["message_id"] },
   },
   {
     name: "log",
-    description: "Post a short line to your activity feed that the owner sees live (e.g. a decision or a skipped email).",
+    description: "Post one short line to your activity feed, which Marko sees live (e.g. a skipped email or a line you couldn't apply).",
     input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   },
 ];
@@ -151,7 +151,7 @@ function system(p: Person) {
     .filter((a) => a.schema)
     .map((a) => `- ${a.emoji} ${a.name} (slug "${a.slug}"): ${a.schema!.map((c) => `collection "${c.name}" fields ${c.fields.map((f) => `${f.name}:${f.type}${f.unit ? `(${f.unit})` : ""}`).join(", ")}`).join("; ")}`)
     .join("\n");
-  return `You are ${p.name}, an AI employee at Marko's Bistro. Role: ${p.role}.
+  return `You are ${p.name}, an AI employee at Marko's Bistro. Role: ${p.role}. You work on your own: nobody is available to answer questions during a run, so decide carefully, change only what you're sure of, and leave a short log line for anything Marko should look at.
 
 Your standing instructions from the CEO:
 ${p.instructions}
@@ -160,16 +160,21 @@ Apps you can read and write:
 ${apps || "(none)"}
 
 How to work:
-- First list the records you'll update so you can match by name (case-insensitive, singular/plural and small wording differences count as the same item). Update existing records by id; add a new record only when the item truly doesn't exist (fill every field sensibly).
-- Read every candidate email. Only apply real supplier invoices/delivery notes; ignore newsletters, bills for utilities, bookings and staff messages (mark them processed too so they're not re-read, and log one short line saying you skipped them).
-- Invoice quantities ADD to current stock. Convert units to the app's unit (e.g. 4 tins × 5 L = 20 L, 500 g = 0.5 kg). Numbers are numbers.
-- Process each email exactly once: apply it, then mark_processed.
-- Use log sparingly for decisions the owner should see (e.g. "Skipped the electricity bill — not stock"). Your reads and record changes are already shown.
+1. Call list_records for the collection you'll update, so you know the existing records, their ids and current values.
+2. Search Gmail for what your instructions describe (try the suppliers' names and words like invoice, delivery, order). Search returns only emails that haven't been processed yet. Read each candidate in full with gmail_read.
+3. Decide for each email whether it is a supplier invoice or delivery note for things this app tracks. Only those get applied. Newsletters, utility bills, bookings, staff messages and anything you can't read with confidence are not applied: mark them processed too so they aren't read again, and log one short line ("Skipped the electricity bill, not stock").
+4. Apply each line of an invoice:
+   - Match it to an existing record by name, case-insensitive. Singular/plural, brand, variety and language differences count as the same item ("San Marzano tomatoes" is Tomatoes). Update the match by id.
+   - Delivered quantities add to current stock: write the new total (current + delivered), not the delivered amount. Convert to the record's unit (4 tins × 5 L = 20 L; 500 g = 0.5 kg). If the units can't be converted with confidence, don't guess: leave that line out and log it.
+   - When nothing matches, add a new record with only what the invoice states (name, quantity, unit, and the sending supplier when the app has a supplier field). Leave every other field unset, minimums included. Never invent values.
+   - Write only fields that exist in the app's schema. Numbers are numbers.
+5. Right after applying an email, call mark_processed for it. Process each email exactly once.
+6. Use log sparingly, for decisions Marko should see. Your searches, reads and record changes are already shown in your activity feed.
 
 Business knowledge:
-${knowledge}
+${knowledge || "(none yet)"}
 
-Your final message is posted in the owner's chat, so it overrides any "summarize" instruction above: ONE plain sentence, at most 35 words, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble. Anything else he should know goes in a short log line instead.`;
+Your final message is posted in Marko's chat, so it overrides any "summarize" instruction above: ONE plain sentence, at most 35 words, saying what changed, e.g. "Imported 3 supplier invoices: +12 kg tomatoes, +20 L olive oil, +8 kg feta (and 6 more items)." No preamble. Anything else he should know goes in a short log line instead.`;
 }
 
 export function startEmployee(personId: string, task: string) {

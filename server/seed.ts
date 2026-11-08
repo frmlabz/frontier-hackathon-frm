@@ -1,15 +1,4 @@
-// Seed data for a fresh DB: Marko's Bistro staff + a mock Gmail inbox.
-
-export const seedHumans = [
-  { id: "ana", name: "Ana Petrović", role: "Head Chef", emoji: "👩‍🍳", color: "#dd5b00" },
-  { id: "luka", name: "Luka Marić", role: "Sous-chef", emoji: "🧑‍🍳", color: "#2a9d99" },
-  { id: "jovan", name: "Jovan Ilić", role: "Line Cook", emoji: "🍳", color: "#1aae39" },
-  { id: "mila", name: "Mila Kovač", role: "Line Cook", emoji: "🥘", color: "#62aef0" },
-  { id: "sara", name: "Sara Nikolić", role: "Waiter", emoji: "🍽️", color: "#ff64c8" },
-  { id: "nikola", name: "Nikola Jovanović", role: "Waiter", emoji: "🍷", color: "#d6b6f6" },
-  { id: "tea", name: "Tea Savić", role: "Waiter", emoji: "☕", color: "#523410" },
-  { id: "petar", name: "Petar Đorđević", role: "Restaurant Manager", emoji: "📋", color: "#0075de" },
-];
+// Seed data for a fresh DB: the mock Gmail inbox. The team starts empty; the CEO adds people as Marko names them.
 
 const H = 3600_000;
 const t0 = Date.now();

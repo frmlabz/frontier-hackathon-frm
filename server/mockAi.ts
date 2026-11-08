@@ -30,31 +30,22 @@ const has = (re: RegExp, s: string) => re.test(s.toLowerCase());
 const PROFILE = `**Marko's Bistro** is a small Mediterranean bistro run by Marko.
 
 ## At a glance
-- **Cuisine:** Mediterranean — Greek and Dalmatian classics, fresh produce, grilled meat
-- **Team:** 8 people (head chef, sous-chef, 2 line cooks, 3 waiters, a manager)
-- **Service:** lunch and dinner, closed Mondays
+- **Cuisine:** Mediterranean
+- **Team:** 8 people (see Team)`;
 
-## How the kitchen runs
-- Ana (head chef) plans the menu and places most orders
-- Stock is counted by hand in a paper notebook`;
+const SUPPLIERS = `| Supplier | What they deliver |
+|---|---|
+| Adriatic Fresh Produce | Vegetables |
+| Kalamata Imports | Olive oil, feta |
+| Novak Butchers | Meat |
+| Mlin | Flour |
 
-const SUPPLIERS = `| Supplier | What they deliver | How we order |
-|---|---|---|
-| Adriatic Fresh Produce | Vegetables, herbs, lemons | Phone, invoice by email |
-| Kalamata Imports | Olive oil, feta, olives | Email |
-| Novak Butchers | Chicken, lamb, beef | Phone, invoice by email |
-| Mlin Flour & Grains | Flour, rice, salt, dried herbs | Email |
+Deliveries come in through the week; invoices arrive by email.`;
 
-All suppliers send invoices to Marko's Gmail.`;
-
-const PAIN = `## 🔥 Stock lives in a notebook
-- Nobody knows what's in the walk-in without going to look
-- Things run out mid-service (feta and tomatoes last week)
-- Invoices arrive by email and have to be typed into the notebook by hand
-
-## Ideas
-- A shared **Inventory** with low-stock warnings
-- Someone to read supplier invoices and update stock automatically`;
+const PAIN = `## 🔥 Inventory management and intake
+- Stock is tracked in a paper notebook that nobody keeps up to date
+- Tomatoes and feta run out mid-service
+- Deliveries come in all week; invoices arrive by email and are copied into the notebook by hand`;
 
 export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   const t = job.text;
@@ -77,7 +68,7 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
     tool("edit_app_spec", { slug: inventory.slug, markdown: addSpecBlock(inventory.spec, id, t), summary: t.replace(/\.$/, "") });
     return say("On it — I'm updating **Inventory**. Your data stays exactly as it is.");
   }
-  if (has(/hire|assistant|someone|employee|pull .*invoice/, t) && !assistant) {
+  if (inventory && has(/hire|assistant|need someone|employee|pull .*invoice/, t) && !assistant) {
     const r = tool("hire_employee", {
       name: "Purchasing Assistant", role: "Reads supplier invoices and keeps stock up to date", emoji: "🛒", color: "#2a9d99",
       instructions: `Search Gmail for supplier invoices. For each invoice, add the delivered quantities to the matching ingredient in the ${inventory?.slug ?? "inventory"} app (collection "ingredients"), matching by name. Add missing ingredients. Skip anything that isn't an invoice.`,
@@ -87,28 +78,39 @@ export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
     tool("request_connector", { provider: "gmail", reason: "So the Purchasing Assistant can read supplier invoices and update stock.", pending_task: `Run ${id}: import all unprocessed supplier invoices into Inventory.` });
     return say("I've hired a **Purchasing Assistant** 🛒 to read supplier invoices and update stock. Connect Gmail and I'll put them to work right away.");
   }
-  if (!inventory && getKnowledge("pain-points") && has(/^(yes|yeah|yep|sure|ok|okay|do it|go|please|sounds good|let'?s)/, t.trim())) {
+  if (!inventory && getKnowledge("suppliers") && has(/^(yes|yeah|yep|sure|ok|okay|do it|go|please|sounds good|let'?s)/, t.trim())) {
     tool("build_app", {
       name: "Inventory", emoji: "🥫", description: "Live stock levels for every ingredient, with low-stock warnings.",
       spec: MOCK_SPEC,
     });
     return say("Setting up **Inventory** now. I'm starting it with the ingredients and suppliers you mentioned.");
   }
-  if (has(/stock|notebook|inventory|track|run out|ran out|mess|count/, t) && !inventory) {
+  if (has(/stock|notebook|inventory|intake|track|run out|ran out|mess/, t) && !inventory && !getKnowledge("pain-points")) {
     tool("upsert_knowledge_page", { slug: "pain-points", emoji: "🔥", title: "Pain Points", markdown: PAIN });
-    return say("That notebook is costing you — things run out mid-service and invoices get typed in by hand. I'd set up an **Inventory** app: every ingredient, how much you have, and a red flag when something drops below its minimum. Want me to set it up?");
+    return say("That notebook is costing you: things run out mid-service and every invoice gets copied in by hand. Who are your suppliers, and what does each one deliver?");
   }
-  if (has(/supplier|order|produce|butcher|deliver/, t) && !getKnowledge("suppliers")) {
+  if (has(/supplier|produce|butcher|imports|deliver/, t) && !getKnowledge("suppliers")) {
     tool("upsert_knowledge_page", { slug: "suppliers", emoji: "🚚", title: "Suppliers", markdown: SUPPLIERS });
-    return say("Got it, four regular suppliers. What's the most annoying part of running the kitchen day to day?");
+    return say("Thanks, that's everything I need. I'd set up an **Inventory** app with your 12 ingredients, how much you have of each, and a red **Low** flag when something drops to its minimum. Want me to set it up?");
   }
   if (has(/restaurant|bistro|run a|cafe|kitchen|people/, t) && !getKnowledge("company-profile")) {
     tool("upsert_knowledge_page", { slug: "company-profile", emoji: "🏢", title: "Company Profile", markdown: PROFILE });
-    return say("Lovely — a Mediterranean bistro with a team of eight. Who are your main suppliers, and how do you order from them?");
+    if (has(/ana|chef/, t)) {
+      tool("add_team_members", { members: MOCK_TEAM });
+      return say("Lovely, a Mediterranean bistro, and I've added Ana, Luka and the rest of the team. How does a normal day run, and what's the hardest part?");
+    }
+    return say("Lovely — a Mediterranean bistro. Who works with you? Names and what they do is enough.");
   }
   if (has(/^(hi|hello|hey)/, t)) return say("Hi Marko! Tell me about the business — what do you run, and who's on the team?");
   return say("Noted. What else should I know — or is there something you'd like me to take off your plate?");
 }
+
+const MOCK_TEAM = [
+  { name: "Ana", role: "Head chef", emoji: "👩‍🍳" }, { name: "Luka", role: "Sous-chef", emoji: "🧑‍🍳" },
+  { name: "Jovan", role: "Line cook", emoji: "🍳" }, { name: "Mila", role: "Line cook", emoji: "🥘" },
+  { name: "Sara", role: "Waits tables", emoji: "🍽️" }, { name: "Nikola", role: "Waits tables", emoji: "🍷" },
+  { name: "Tea", role: "Waits tables", emoji: "☕" }, { name: "Petar", role: "Manager", emoji: "📋" },
+];
 
 const MOCK_SPEC = `## Definitions
 - :Ingredient: — something the kitchen stocks; has name, category, quantity, unit, minimum and supplier.
@@ -124,7 +126,18 @@ An :Ingredient: at or below its minimum shows a red "Low" badge and is counted i
 Marko can add an :Ingredient: from an "Add item" form.
 
 ## Starter data
-Marko's ingredients: tomatoes, feta, olive oil, flour, lemons, chicken, lamb, basil, with their suppliers. Realistic example stock and minimums; tomatoes and feta start below their minimum.
+- Tomatoes: 4 kg, minimum 10 kg, from Adriatic Fresh Produce
+- Lemons: 3 kg, minimum 4 kg, from Adriatic Fresh Produce
+- Fresh basil: 2 bunch, minimum 5 bunch, from Adriatic Fresh Produce
+- Garlic: 1.5 kg, minimum 1 kg, from Adriatic Fresh Produce
+- Olive oil: 6 L, minimum 10 L, from Kalamata Imports
+- Feta: 2 kg, minimum 5 kg, from Kalamata Imports
+- Kalamata olives: 4 kg, minimum 2 kg, from Kalamata Imports
+- Chicken thighs: 5 kg, minimum 8 kg, from Novak Butchers
+- Lamb shoulder: 3 kg, minimum 4 kg, from Novak Butchers
+- Flour type 400: 18 kg, minimum 10 kg, from Mlin Flour & Grains
+- Arborio rice: 3 kg, minimum 5 kg, from Mlin Flour & Grains
+- Sea salt: 4 kg, minimum 2 kg, from Mlin Flour & Grains
 
 ## Acceptance
 - low-stock-alert: Tomatoes shows "Low".

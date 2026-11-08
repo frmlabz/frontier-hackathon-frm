@@ -107,7 +107,7 @@ function Item({ item, showAvatar }: { item: ChatItem; showAvatar: boolean }) {
 }
 
 const CHIPS = [
-  { label: "I run a restaurant…", text: "I run a small Mediterranean bistro with 8 people." },
+  { label: "I run a restaurant…", text: "I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place." },
   { label: "Help me track stock", text: "Help me keep track of our kitchen stock." },
   { label: "Hire an assistant", text: "I need someone to pull supplier invoices from Gmail and update stock." },
 ];

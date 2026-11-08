@@ -71,7 +71,11 @@ ${instructions}
 ${JSON.stringify(records)}
 </existing_records>
 
-When a line clearly refers to an existing record (a different wording, brand or language for the same thing), use that record's exact name. Otherwise keep the document's wording, cleaned up. If the same item appears on several lines, return it once with the quantities added up. Quantities are plain numbers in the record's unit where the document makes that clear.
+Rules:
+- Return only what the document says. Never guess a value you can't read: leave out a line whose item or quantity is unreadable, and leave out any field the document doesn't show.
+- When a line clearly refers to an existing record (a different wording, brand, variety or language for the same thing, e.g. "Roma tomatoes" for Tomatoes), use that record's exact name. Otherwise keep the document's wording, cleaned up and in the language of the existing records.
+- If the same item appears on several lines, return it once with the quantities added up.
+- Quantities are plain numbers. Convert to the unit the instructions ask for only when the document makes the conversion clear (e.g. 4 × 5 L = 20 L); otherwise keep the document's unit.
 
 Reply with only the JSON the instructions describe. No prose, no code fences.`,
           },

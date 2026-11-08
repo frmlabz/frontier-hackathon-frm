@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowUpRight, Check, FileText, Plug, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Check, FileText, Plug, RotateCcw, Sparkles, Users, X } from "lucide-react";
 import { connectGmail, navigate, useStore, type App, type Person } from "../store";
 import { Badge, Button, GmailLogo, Link, PersonAvatar, Spinner, cx } from "./common";
 
@@ -200,6 +200,7 @@ export function EventLine({ payload }: { payload: { icon?: string; text: string;
   const icon =
     payload.icon === "bot" && person ? <PersonAvatar person={person} size={18} /> :
     payload.icon === "page" ? <FileText size={14} /> :
+    payload.icon === "team" ? <Users size={14} /> :
     payload.icon === "plug" ? <Plug size={14} /> : <Sparkles size={14} />;
   return (
     <div className={cx("flex items-start gap-2 my-1.5 text-[13px] text-muted anim-fade-up", person && "my-3 py-2 px-3 rounded-lg bg-canvas-soft")}>

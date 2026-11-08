@@ -25,9 +25,9 @@ $A set viewport 1440 900 >/dev/null
 $A open http://localhost:3000/ >/dev/null; sleep 1.5; $A errors --clear >/dev/null 2>&1
 shot 00-empty-hub; check 00-empty-hub
 
-say 01-intro "I run a small Mediterranean bistro with 8 people."
-say 02-suppliers "Suppliers: Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. They all send invoices by email."
-say 03-pain "Biggest pain is stock. We track it in a paper notebook, nobody updates it, and we keep running out of tomatoes and feta. We use tomatoes, feta, olive oil, flour, lemons, chicken, lamb, basil."
+say 01-intro "I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place."
+say 02-pain "The hardest part is inventory management and intake. We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service. Deliveries come in all week, the invoices arrive by email, and someone has to copy them into the notebook by hand."
+say 03-suppliers-stock "Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. Right now we have 4 kg tomatoes (need 10), 2 kg feta (need 5), 6 L olive oil (need 10), 3 kg lemons (need 4), 2 bunches of basil (need 5), 1.5 kg garlic (need 1), 4 kg Kalamata olives (need 2), 5 kg chicken thighs (need 8), 3 kg lamb shoulder (need 4), 18 kg flour (need 10), 3 kg arborio rice (need 5) and 4 kg sea salt (need 2)."
 say 04-yes "Yes, build that."
 curl -sf localhost:3000/api/state | grep -o '"slug":"[a-z-]*","name":"[^"]*"' | head -3
 say 05-hire "I need someone to pull supplier invoices from Gmail and update stock."

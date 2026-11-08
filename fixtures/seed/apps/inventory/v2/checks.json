@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "at": 1794097257921,
+  "at": 1794123996846,
   "items": [
     {
       "id": "list-ingredients#0",
@@ -9,7 +9,5 @@
       "text": "Olive oil"
     }
   ],
-  "results": {
-    "list-ingredients#0": true
-  }
+  "results": null
 }

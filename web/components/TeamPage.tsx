@@ -29,6 +29,11 @@ export function TeamPage() {
           <div className="px-2 flex items-center gap-1.5 border-l border-hairline h-full"><Circle size={13} /> Status</div>
           <div className="px-2 flex items-center gap-1.5 border-l border-hairline h-full"><Plug size={13} /> Tools</div>
         </div>
+        {sorted.length === 0 && (
+          <div className="px-2 py-10 text-center text-muted text-[14px]">
+            No one here yet. Tell the AI CEO in the <Link to="/" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-ink">Hub</Link> who works with you.
+          </div>
+        )}
         {sorted.map((p) => (
           <div
             key={p.id}

@@ -32,22 +32,35 @@ db.remove(coll, id: string): Promise<void>
 // Reads a photo/PDF with AI and returns JSON shaped as the instructions describe (e.g. invoice line items).
 ai.extract(file: File, instructions: string): Promise<any>`;
 
-const SYSTEM = `You write small, polished internal tools for a small business. Each tool is ONE React file (App.tsx) that runs inside the business's workspace (it looks like a Notion page).
+const SYSTEM = `You write small, polished internal tools for a small business. Each tool is ONE React file (App.tsx) that runs inside the business's workspace, which looks like a Notion page. The owner isn't technical: the app must be obvious to use without any explanation.
 
-The <spec> is the source of truth. Definitions describe the records (":Name:" is a defined record). Implement every "### id" block under Functional specs. "Starter data" says what seed_json contains. Every Acceptance line must hold for the seeded data.
+# The spec is the source of truth
+The <spec> describes the app:
+- Definitions: the records. ":Name:" refers to a defined record. Each defined record becomes a collection; each listed field becomes a field with the right type and unit.
+- Functional specs: implement every "### id" block fully. Don't add behaviour the spec doesn't ask for beyond the standard layout below.
+- Starter data: exactly what seed_json contains on the first build.
+- Acceptance: every line must be visibly true when the page first opens with the seeded data, with no clicks.
+<business_knowledge> is background (names, wording, suppliers). Use it for labels and context, never as a source of extra records or values.
 
-Hard rules:
-- Imports allowed: "react", "@bos/ui", "@bos/sdk". Nothing else. No fetch, no localStorage, no window.parent.
-- export default function App(). Self-contained, under ~300 lines, TypeScript/TSX.
-- All data lives in collections via @bos/sdk. Declare every collection you use in "collections" with its fields. Use only those.
-- Never hard-code sample data in the code. Initial data goes in "seed_json": a JSON object string mapping collection name → array of records (field values only, no id/createdAt/updatedAt). Realistic, specific to this business, 6–14 rows for the main collection.
+# Data
+- All data lives in collections via @bos/sdk. Declare every collection you use in "collections" with its fields, and use only those names in the code.
+- seed_json (first build only) is a JSON object string mapping collection name → array of records (field values only, no id/createdAt/updatedAt). It holds exactly the records listed under Starter data, with exactly those values: the same names, numbers, units and suppliers. Don't add, drop or rename records. A value marked "not given" (or simply not stated) is left out of the record; never fill it with an estimate, a typical value or 0. If Starter data says there are none, return "{}". The owner will see these records as his own data, so an invented value is a real error.
+- Never hard-code records or sample data in the code.
+- Numbers are numbers, never strings. When saving from inputs, convert with Number(), and leave an empty input unset rather than saving 0.
+- Records are often partial: the owner leaves fields blank and AI employees write records too. Treat a missing value as unknown, not as zero: show an empty cell or "—", and leave the record out of any rule that needs that value (an item without a minimum is never "Low"; it isn't counted in a "Running low" stat). Never crash on a missing field; use ?? when reading.
+
+# Hard rules
+- Imports allowed: "react", "@bos/ui", "@bos/sdk". Nothing else. No fetch, no localStorage, no window.parent, no timers that write data.
+- export default function App(). Self-contained TypeScript/TSX, under ~300 lines.
 - Visual styling comes ONLY from @bos/ui components. Tailwind classes are allowed for layout only (flex, grid, gap-*, w-*, mt-*, etc.), never for colors, fonts, borders or shadows.
-- Start with <Page><Header emoji=… title=… subtitle=… actions=…/> … </Page>. The Header emoji and title must match the app.
-- A typical layout: a row of 3–4 Stat tiles (Grid cols), then a toolbar (search Input + filter Select + primary "Add" Button that opens a Modal form), then the main Table. Exactly one "Add" button per page (toolbar or Header actions, never both). The main Table has inline editing (onEdit → db.update) and onDelete. Use Badge for statuses, rowTone to highlight rows that need attention, EmptyState when there are no rows.
-- Numbers are numbers (not strings). When saving from inputs convert with Number(). Guard against missing fields in records (AI employees may write partial records): use ?? defaults.
-- Handle loading (Table loading prop) and empty states. Toast on add/delete.
-- Photo/PDF import (e.g. a paper invoice), only when the spec asks for it: a header Button opens a side Modal with a FileDrop (busy while reading). On a file, call ai.extract(file, instructions) where instructions state the exact JSON shape (e.g. {"supplier": string, "lines": [{"name": string, "quantity": number, "unit": string}]}); the server already matches names to existing records. Show a small preview of the photo (URL.createObjectURL) and the lines in an editable review Table with a Badge per line: the change it will make to the matching record (case-insensitive name match, e.g. "4 → 12") or "New item". A primary Button applies it (db.update matches, db.insert the rest), then toast and close. On error, toast("Couldn't read that photo", "error").
-- Keep it simple and robust over clever. No external state libs, no routing, no timers that write data.
+
+# Layout
+- Start with <Page><Header emoji=… title=… subtitle=… actions=…/> … </Page>. The Header emoji and title match the app.
+- A typical layout: a row of 3–4 Stat tiles (Grid cols) for the numbers that matter (e.g. items, running low), then a toolbar (search Input + filter Select + primary "Add" Button that opens a Modal form), then the main Table. Exactly one "Add" button per page (toolbar or Header actions, never both). The Add form requires only what the spec says is required; other fields may be left blank.
+- The main Table has inline editing (onEdit → db.update) and onDelete. Use Badge for statuses, rowTone to highlight rows that need attention, EmptyState (with the Add action) when there are no rows, and the Table loading prop while loading. Toast on add and delete.
+- Use the spec's words for labels and column headers, so the app and its spec read the same.
+- Photo/PDF import (e.g. a paper invoice), only when the spec asks for it: a header Button opens a side Modal with a FileDrop (busy while reading). On a file, call ai.extract(file, instructions) where instructions state the exact JSON shape (e.g. {"supplier": string, "lines": [{"name": string, "quantity": number, "unit": string}]}); the server already matches names to existing records. Show a small preview of the photo (URL.createObjectURL) and the lines in an editable review Table with a Badge per line: the change it will make to the matching record (case-insensitive name match, e.g. "4 → 12") or "New item". A primary Button applies it (db.update matches, db.insert the rest with only the values the document gave), then toast and close. On error, toast("Couldn't read that photo", "error").
+- Keep it simple and robust over clever. No external state libraries, no routing.
 
 @bos/ui (import named components from "@bos/ui"):
 \`\`\`ts
@@ -177,7 +190,7 @@ function userPrompt(app: App, reason: BuildReason, code: string | null, diff: Sp
       `<failed_checks>\nThe app runs, but these acceptance checks from the spec failed against the rendered page on first load:\n${reason.failedChecks.map((c) => `- ${c.label}: expected "${c.text}"${c.row ? ` in the row for "${c.row}"` : " on the page"}`).join("\n")}\nFix the app so they pass without any clicks: the rows and text must be visible when the page opens.\n</failed_checks>`,
     );
   if (reason.error) parts.push(`<runtime_error>\nThe current version crashed in the browser with:\n${reason.error}\nFix the cause.\n</runtime_error>`);
-  if (!code) parts.push(`Today is ${new Date().toISOString().slice(0, 10)}. Seed dates must be within the last two weeks.`);
+  if (!code) parts.push(`Today is ${new Date().toISOString().slice(0, 10)}. Use it only to compute relative dates; seed only the dates the spec gives.`);
   parts.push(code ? "Return the full updated app." : "Write the app.");
   return parts.join("\n\n");
 }
@@ -230,11 +243,19 @@ function lint(code: string): string | null {
   return null;
 }
 
-/** First builds must ship starter rows, or the demo opens on an empty app. */
-function seedProblem(out: BuildOutput): string | null {
+/** The spec's Starter data section, or "" when it has none / says there are none. */
+export function starterData(spec: string) {
+  const m = /^## Starter data\s*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(spec);
+  const t = (m?.[1] ?? "").trim();
+  return /^none\b/i.test(t) ? "" : t;
+}
+
+/** First builds must seed the records the spec lists (and nothing when it lists none). */
+function seedProblem(out: BuildOutput, spec: string): string | null {
   const main = out.collections[0]?.name;
   if (!out.seed) return "seed_json was not a valid JSON object string. Return seed_json as a JSON object string mapping collection name → array of records.";
-  if (main && !(Array.isArray(out.seed[main]) && out.seed[main].length > 0)) return `seed_json has no starter rows for "${main}". Include 6–14 realistic records.`;
+  if (main && starterData(spec) && !(Array.isArray(out.seed[main]) && out.seed[main].length > 0))
+    return `seed_json has no rows for "${main}", but the spec's Starter data lists records. Include exactly those records with exactly the values given.`;
   return null;
 }
 
@@ -291,7 +312,7 @@ async function build(slug: string, reason: BuildReason) {
 
     setStatus(slug, { status: fixing ? "fixing" : "building", step: STEPS[2] });
     writeFileSync(`${dir}/App.tsx`, out.code);
-    const err = lint(out.code) ?? (prevVersion === 0 ? seedProblem(out) : null) ?? (await bundle(dir));
+    const err = lint(out.code) ?? (prevVersion === 0 ? seedProblem(out, app.spec) : null) ?? (await bundle(dir));
     if (!err) {
       // A version produced by an auto-fix never gets another one, so a fix that still crashes can't loop.
       if (fixing) autoFixed.add(`${slug}@v${next}`);
