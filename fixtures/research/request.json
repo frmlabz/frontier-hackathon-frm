@@ -1,0 +1,15 @@
+{
+  "business": "small Mediterranean bistro",
+  "location": null,
+  "pains": [
+    "We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service.",
+    "Invoices arrive by email and someone has to copy them into the notebook by hand."
+  ],
+  "inputs": [
+    { "label": "Hours copying invoices", "value": 5, "unit": "h/week" },
+    { "label": "Stock-outs per week (low)", "value": 2, "unit": "times/week" },
+    { "label": "Stock-outs per week (high)", "value": 3, "unit": "times/week" },
+    { "label": "Covers per day", "value": 120, "unit": "covers/day" },
+    { "label": "Monthly food spend", "value": 9000, "unit": "EUR/month" }
+  ]
+}

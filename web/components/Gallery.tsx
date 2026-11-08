@@ -1,8 +1,19 @@
 import { useState, type ReactNode } from "react";
 import type { App, Person } from "../store";
-import { AppCardView, ConnectorCardView, EventLine, HireCardView } from "./cards";
+import { AppCardView, ConnectorCardView, EventLine, HireCardView, ReportCardView } from "./cards";
+import { ReportPageView } from "./ReportPage";
+import { validateReport, type ReportRow, type Submission } from "../../server/report";
+import fixtureReport from "../../fixtures/research/report.json";
+import fixtureRequest from "../../fixtures/research/request.json";
 import { CeoMessage, Composer } from "./HubPage";
 import { Button, PageChrome, PageTitle } from "./common";
+import { CONNECTORS, getConnector } from "../../server/connectors";
+import { ProviderLogo } from "../logos";
+import { GenericConsent, GoogleSignIn } from "./ConnectorSignIn";
+
+const noop = () => {};
+const fakeAllow = (ok: boolean) => () => new Promise<string | null>((r) => setTimeout(() => r(ok ? null : "Couldn't connect. Try again."), 900));
+const frame = "flex justify-center py-6 bg-black/40 rounded-lg overflow-hidden";
 
 const app = (over: Partial<App>): App => ({
   slug: "inventory", name: "Inventory", emoji: "🥫", description: "Track ingredient stock levels", spec: "",
@@ -12,6 +23,18 @@ const nina: Person = {
   id: "nina", kind: "ai", name: "Nina", role: "Bookkeeping assistant", emoji: "🧾", color: "#9065b0",
   instructions: "", connectors: ["gmail"], status: "idle", createdAt: Date.now(),
 };
+
+// Report states from the real fixture, run through the same validator the server uses.
+const ready = validateReport(fixtureReport as Submission, fixtureRequest, null).report;
+const reportRow = (over: Partial<ReportRow>): ReportRow => ({
+  id: "gallery", status: "ready", input: fixtureRequest, report: ready, progress: { lines: [], sources: 3 }, error: null, createdAt: Date.now(), updatedAt: Date.now(), ...over,
+});
+const thinRow = reportRow({ status: "thin", report: { ...ready, findings: ready.findings.slice(0, 1), estimates: [], charts: [], opportunities: [], sources: ready.sources.slice(0, 1) } });
+const researchingRow = reportRow({
+  status: "researching", report: null,
+  progress: { lines: ["Searching for restaurant food waste studies", "Reading Champions 12.3: The Business Case for Reducing Food Loss and Waste", "Searching for invoice processing time benchmarks", "Reading Stampli: How to Calculate the True Cost of AP Automation", "Checking quotes against the sources"], sources: 3 },
+});
+const failedRow = reportRow({ status: "failed", report: null, error: "The research didn't finish: no claim could be checked against a source." });
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -62,9 +85,46 @@ export function Gallery() {
         <HireCardView person={nina} connected={["gmail"]} />
       </Block>
       <Block title="Connector card">
-        <ConnectorCardView reason="Nina needs Gmail to read supplier invoices." onConnect={() => new Promise((r) => setTimeout(() => r(true), 1500))} />
-        <ConnectorCardView reason="Retry state (connect fails)." onConnect={() => new Promise((r) => setTimeout(() => r(false), 800))} />
-        <ConnectorCardView reason="Nina needs Gmail to read supplier invoices." account="marko@markosbistro.com" onConnect={async () => true} />
+        <ConnectorCardView reason="Nina needs Gmail to read supplier invoices." onConnect={() => {}} />
+        <ConnectorCardView reason="Nina needs Gmail to read supplier invoices." account="marko@markosbistro.com" onConnect={() => {}} />
+      </Block>
+      <Block title="Provider logos (32 / 16 px)">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-3">
+          {CONNECTORS.map((c) => (
+            <div key={c.id} className="flex flex-col items-center gap-1.5 text-[11px] text-muted">
+              <ProviderLogo id={c.id} size={32} />
+              <ProviderLogo id={c.id} size={16} />
+              {c.name}
+            </div>
+          ))}
+        </div>
+      </Block>
+      <Block title="Google sign-in: choose an account / another account / consent / Allow fails">
+        <div className="flex flex-col gap-4">
+          <div className={frame}><GoogleSignIn connector={getConnector("gmail")!} onAllow={fakeAllow(true)} onCancel={noop} /></div>
+          <div className={frame}><GoogleSignIn connector={getConnector("gmail")!} onAllow={fakeAllow(true)} onCancel={noop} initialOther /></div>
+          <div className={frame}><GoogleSignIn connector={getConnector("gmail")!} onAllow={fakeAllow(true)} onCancel={noop} initialStep="consent" /></div>
+          <div className={frame}><GoogleSignIn connector={getConnector("google-sheets")!} onAllow={fakeAllow(false)} onCancel={noop} initialStep="consent" /></div>
+        </div>
+      </Block>
+      <Block title="Generic consent (Slack, Xero; Allow fails on Xero)">
+        <div className="flex flex-col gap-4">
+          <div className={frame}><GenericConsent connector={getConnector("slack")!} onAllow={fakeAllow(true)} onCancel={noop} /></div>
+          <div className={frame}><GenericConsent connector={getConnector("xero")!} onAllow={fakeAllow(false)} onCancel={noop} /></div>
+        </div>
+      </Block>
+      <Block title="Report card: researching / ready / thin / failed">
+        <ReportCardView row={researchingRow} />
+        <ReportCardView row={reportRow({})} />
+        <ReportCardView row={thinRow} />
+        <ReportCardView row={failedRow} />
+      </Block>
+      <Block title="Report page: thin">
+        <div className="rounded-lg border border-hairline px-6 pb-6"><ReportPageView row={thinRow} /></div>
+      </Block>
+      <Block title="Report page: researching / failed">
+        <div className="rounded-lg border border-hairline px-6 pb-6 mb-3"><ReportPageView row={researchingRow} /></div>
+        <div className="rounded-lg border border-hairline px-6 pb-6"><ReportPageView row={failedRow} /></div>
       </Block>
       <Block title="Event lines">
         <EventLine payload={{ icon: "page", text: "Created page", link: "/knowledge/company-profile", linkText: "Company profile" }} />

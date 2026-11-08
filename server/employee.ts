@@ -2,7 +2,7 @@
 import { client, logUsage, requestOptions } from "./claude";
 import { publish } from "./bus";
 import {
-  MOCK, addActivity, getApp, getPerson, getRecord, insertChatItem, insertRecord, listApps, listKnowledge, listRecords,
+  MOCK, addActivity, getApp, isConnected, getPerson, getRecord, insertChatItem, insertRecord, listApps, listKnowledge, listRecords,
   markProcessed, setPersonStatus, updateRecord, type Person,
 } from "./db";
 import { gmailRead, gmailSearch } from "./mockGmail";
@@ -83,6 +83,12 @@ function describeChange(before: any, after: any, unitOf: (k: string) => string, 
 
 /** Executes one employee tool. Shared by the real loop and mock mode. */
 export function runEmployeeTool(p: Person, name: string, input: any): any {
+  // 05 §3.4: Marko can disconnect Gmail mid-run; the next Gmail read stops the employee. mark_processed stays
+  // allowed so an invoice already applied to stock is still marked done and a rerun doesn't import it twice.
+  if ((name === "gmail_search" || name === "gmail_read") && !isConnected("gmail")) {
+    log(p.id, "Gmail was disconnected, stopping.");
+    return { error: "Gmail is disconnected. Stop and report that you couldn't finish." };
+  }
   switch (name) {
     case "gmail_search": {
       const res = gmailSearch(input.query, input.max);

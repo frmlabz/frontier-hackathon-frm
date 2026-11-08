@@ -9,6 +9,9 @@ import { PersonPage, TeamPage } from "./components/TeamPage";
 import { Gallery } from "./components/Gallery";
 import { PageChrome } from "./components/common";
 import { CheckRunner } from "./components/CheckRunner";
+import { ConnectorsPage } from "./components/ConnectorsPage";
+import { ReportPage } from "./components/ReportPage";
+import { ConnectorSignIn } from "./components/ConnectorSignIn";
 
 function Route() {
   const path = useStore((s) => s.path);
@@ -20,6 +23,8 @@ function Route() {
   if (seg[0] === "app" && seg[1]) return <AppPage key={seg[1]} slug={seg[1]} tab={seg[2] === "spec" ? "spec" : "app"} />;
   if (seg[0] === "knowledge" && seg[1]) return wrap(<KnowledgePage slug={seg[1]} />, path);
   if (seg[0] === "team") return wrap(<TeamPage />, path);
+  if (seg[0] === "report" && seg[1]) return wrap(<ReportPage id={seg[1]} />, path);
+  if (seg[0] === "connectors") return wrap(<ConnectorsPage />, path);
   if (seg[0] === "people" && seg[1]) return wrap(<PersonPage id={seg[1]} />, path);
   if (seg[0] === "dev" && seg[1] === "gallery") return wrap(<Gallery />, path);
   return wrap(<PageChrome crumbs={["Not found"]}><div className="pt-24 text-center text-muted">Nothing here.</div></PageChrome>, path);
@@ -33,6 +38,7 @@ function Root() {
         <Route />
       </main>
       <CheckRunner />
+      <ConnectorSignIn />
     </div>
   );
 }

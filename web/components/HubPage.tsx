@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { sendChat, useStore, type ChatItem } from "../store";
-import { AppCard, ConnectorCard, EventLine, HireCard } from "./cards";
+import { AppCard, ConnectorCard, EventLine, HireCard, ReportCard } from "./cards";
 import { Markdown, cx } from "./common";
 
 /** Reveals text at a steady pace that speeds up with the backlog, so bursts of tokens read smoothly. */
@@ -100,6 +100,8 @@ function Item({ item, showAvatar }: { item: ChatItem; showAvatar: boolean }) {
       return <div className="pl-9"><HireCard payload={item.payload} /></div>;
     case "connector_card":
       return <div className="pl-9"><ConnectorCard payload={item.payload} /></div>;
+    case "report_card":
+      return <div className="pl-9"><ReportCard payload={item.payload} /></div>;
     case "event":
       return <div className="pl-9"><EventLine payload={item.payload} /></div>;
   }
@@ -108,8 +110,8 @@ function Item({ item, showAvatar }: { item: ChatItem; showAvatar: boolean }) {
 
 const CHIPS = [
   { label: "I run a restaurant…", text: "I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place." },
-  { label: "Help me track stock", text: "Help me keep track of our kitchen stock." },
-  { label: "Hire an assistant", text: "I need someone to pull supplier invoices from Gmail and update stock." },
+  { label: "What could I automate?", text: "What could I automate in my business?" },
+  { label: "Show me the numbers", text: "Show me the numbers: what would automating this be worth for us?" },
 ];
 
 function greeting() {

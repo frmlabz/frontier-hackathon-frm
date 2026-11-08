@@ -1,5 +1,6 @@
 // Server → shell real-time events over one WebSocket topic. Types are shared with web/store.ts.
 import type { Server } from "bun";
+import type { ReportRow } from "./report";
 
 export type BusEvent =
   | { type: "chat.delta"; text: string }
@@ -10,6 +11,7 @@ export type BusEvent =
   | { type: "records.changed"; app: string; collection: string }
   | { type: "activity.add"; personId: string; text: string; id: number; createdAt: number }
   | { type: "knowledge.changed"; slug: string }
+  | { type: "report.updated"; report: ReportRow }
   | { type: "state.changed" };
 
 let server: Server<any> | null = null;

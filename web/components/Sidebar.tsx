@@ -32,7 +32,7 @@ function Section({ title, children, empty }: { title: string; children: ReactNod
 }
 
 export function Sidebar() {
-  const { path, knowledge, apps, unread } = useStore();
+  const { path, knowledge, apps, reports, unread } = useStore();
   useStore((s) => s.fresh); // re-render when something new arrives
   return (
     <aside className="w-[240px] shrink-0 h-full bg-sidebar border-r border-hairline flex flex-col select-none">
@@ -53,8 +53,20 @@ export function Sidebar() {
           right={unread && path !== "/" ? <span className="w-2 h-2 rounded-full bg-[#eb5757] anim-pop" title="New messages" /> : null}
         />
         <Row to="/team" icon={<Users size={16} strokeWidth={2} className="text-[#5f5e5b]" />} label="Team" active={path === "/team" || path.startsWith("/people/")} />
+        <Row to="/connectors" icon="🔌" label="Connectors" active={path === "/connectors"} />
 
-        <Section title="Knowledge" empty={knowledge.length ? undefined : "Pages appear as we talk"}>
+        <Section title="Knowledge" empty={knowledge.length || reports.length ? undefined : "Pages appear as we talk"}>
+          {reports.map((r) => (
+            <Row
+              key={r.id}
+              to={`/report/${r.id}`}
+              icon="📈"
+              label="Automation ROI"
+              active={path === `/report/${r.id}`}
+              fresh={isFresh(`r:${r.id}`)}
+              right={r.status === "researching" ? <Spinner size={12} /> : r.status === "failed" ? <span className="w-2 h-2 rounded-full bg-red" title="Research failed" /> : null}
+            />
+          ))}
           {knowledge.map((k) => (
             <Row key={k.slug} to={`/knowledge/${k.slug}`} icon={k.emoji} label={k.title} active={path === `/knowledge/${k.slug}`} fresh={isFresh(`k:${k.slug}`)} />
           ))}

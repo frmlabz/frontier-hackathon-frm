@@ -3,8 +3,10 @@ import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { publish, setServer, TOPIC } from "./bus";
 import {
-  DATA_DIR, MOCK, connect, createApp, deleteRecord, getApp, insertChatItem, insertRecord, kv, listRecords, snapshot, updateRecord,
+  DATA_DIR, MOCK, connect, createApp, deleteRecord, disconnect, getApp, insertChatItem, insertRecord, kv, listConnectors, listRecords,
+  snapshot, updateRecord,
 } from "./db";
+import { getConnector } from "./connectors";
 import { autoFix, bundle, checkFix, startBuild } from "./builder";
 import { dataChangedSince, getChecks, prepareChecks, recordResults } from "./checks";
 import { specChangeIds } from "./spec";
@@ -21,6 +23,24 @@ const body = async (req: Request) => {
     return {};
   }
 };
+
+/** Fake connect (05 §2): writes the row; the CEO hears about it only when a task was waiting on this provider. */
+function connectProvider(id: string, account: unknown) {
+  const c = getConnector(id);
+  if (!c) return json({ error: "unknown connector" }, 404);
+  if (typeof account !== "string" || !account.trim()) return json({ error: "account required" }, 400);
+  const acct = account.trim();
+  const changed = listConnectors().find((x) => x.provider === id)?.account !== acct;
+  if (changed) connect(id, acct);
+  publish({ type: "state.changed" });
+  if (changed) publish({ type: "chat.item", item: insertChatItem("event", { icon: "plug", text: `${c.name} connected as ${acct}` }) });
+  const pending = kv.get(`pending:${id}`);
+  if (pending) {
+    kv.delete(`pending:${id}`);
+    enqueue({ kind: "event", text: `[event] ${c.name} connected as ${acct}. Pending task: ${pending}` });
+  }
+  return json({ ok: true, account: acct });
+}
 
 let kitBuild: Promise<string | null> | null = null;
 async function buildKit() {
@@ -70,17 +90,15 @@ const server = Bun.serve({
       },
     },
 
-    "/api/connectors/gmail/connect": {
-      POST: async (req) => {
-        const { account = "marko@markosbistro.com" } = await body(req);
-        await Bun.sleep(MOCK ? 700 : 500); // the "Connecting…" moment on the button
-        connect("gmail", account);
+    "/api/connectors/:id/connect": {
+      POST: async (req) => connectProvider(req.params.id, (await body(req)).account),
+    },
+    "/api/connectors/:id/disconnect": {
+      POST: (req) => {
+        if (!getConnector(req.params.id)) return json({ error: "unknown connector" }, 404);
+        disconnect(req.params.id);
         publish({ type: "state.changed" });
-        const pending = kv.get("pending:gmail") ?? "";
-        const item = insertChatItem("event", { icon: "plug", text: `Gmail connected as ${account}` });
-        publish({ type: "chat.item", item });
-        enqueue({ kind: "event", text: `[event] Gmail connected as ${account}.${pending ? ` Pending task: ${pending}` : ""}` });
-        return json({ ok: true, account });
+        return json({ ok: true });
       },
     },
 

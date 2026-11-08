@@ -134,24 +134,12 @@ export function Button({
   );
 }
 
-export function GmailLogo({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size * 0.75} viewBox="0 0 48 36" aria-label="Gmail">
-      <path fill="#4285f4" d="M3.3 36h7.6V17.5L0 9.3v23.4C0 34.5 1.5 36 3.3 36z" />
-      <path fill="#34a853" d="M37.1 36h7.6c1.8 0 3.3-1.5 3.3-3.3V9.3l-10.9 8.2" />
-      <path fill="#fbbc04" d="M37.1 3.3v14.2L48 9.3V4.9c0-4-4.6-6.3-7.8-3.9" />
-      <path fill="#ea4335" d="M10.9 17.5V3.3L24 13.1l13.1-9.8v14.2L24 27.3" />
-      <path fill="#c5221f" d="M0 4.9v4.4l10.9 8.2V3.3L7.8 1C4.6-1.4 0 .9 0 4.9z" />
-    </svg>
-  );
-}
-
 /** Notion page chrome: sticky top bar with breadcrumb, then a centered 900px content column. */
 export function PageChrome({ crumbs, right, children, wide }: { crumbs: ReactNode[]; right?: ReactNode; children: ReactNode; wide?: boolean }) {
   return (
     <div className="min-h-full flex flex-col">
       <TopBar crumbs={crumbs} right={right} />
-      <div className={cx("w-full mx-auto px-12 pb-32 anim-fade-in", wide ? "max-w-[1200px]" : "max-w-[900px]")}>{children}</div>
+      <div className={cx("w-full mx-auto px-4 sm:px-12 pb-32 anim-fade-in", wide ? "max-w-[1200px]" : "max-w-[900px]")}>{children}</div>
     </div>
   );
 }
@@ -176,7 +164,7 @@ export function PageTitle({ emoji, title, sub }: { emoji: string; title: string;
   return (
     <div className="pt-16 pb-4">
       <div className="text-[78px] leading-[1.1] mb-2 select-none">{emoji}</div>
-      <h1 className="text-[40px] font-bold leading-[1.2] tracking-[-0.02em] text-ink-strong">{title}</h1>
+      <h1 className="text-[28px] sm:text-[40px] font-bold leading-[1.2] tracking-[-0.02em] text-ink-strong [overflow-wrap:anywhere]">{title}</h1>
       {sub && <div className="mt-2 text-[14px] text-muted">{sub}</div>}
     </div>
   );

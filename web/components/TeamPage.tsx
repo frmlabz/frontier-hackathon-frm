@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Activity as ActivityIcon, AtSign, Bot, Briefcase, Circle, FileText, Plug, User } from "lucide-react";
 import { isFresh, navigate, useStore, type Person } from "../store";
-import { Badge, GmailLogo, Link, Markdown, PageChrome, PageTitle, PersonAvatar, Prop, Spinner, clock, cx, timeAgo, useTick } from "./common";
+import { Badge, Link, Markdown, PageChrome, PageTitle, PersonAvatar, Prop, Spinner, clock, cx, timeAgo, useTick } from "./common";
+import { GmailLogo } from "../logos";
 
 function StatusPill({ status }: { status: string }) {
   return status === "working" ? (

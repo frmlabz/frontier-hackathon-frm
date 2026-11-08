@@ -2,19 +2,22 @@
 import { client, logUsage, requestOptions } from "./claude";
 import { publish } from "./bus";
 import {
-  MOCK, appendMessage, createAiPerson, createApp, getApp, getMessages, getPerson, insertChatItem, isConnected, kv,
-  listApps, listConnectors, listKnowledge, listPeople, countRecords, patchApp, upsertHumans, upsertKnowledge,
+  MOCK, appendMessage, createAiPerson, createApp, createReport, getApp, getMessages, getPerson, hasResearchOutcome, insertChatItem,
+  isConnected, kv, listApps, listConnectors, listKnowledge, listPeople, listReports, countRecords, patchApp, researchRunning,
+  upsertHumans, upsertKnowledge,
 } from "./db";
 import { isBuilding, queueBuild, startBuild } from "./builder";
 import { SPEC_FORMAT, diffCount, pendingSpecChanges, stripFrontmatter, writeSpec } from "./spec";
 import { isRunning, startEmployee } from "./employee";
+import { startResearch } from "./research";
+import { formatValue, strongestFinding, type ReportRow, type SourceKind } from "./report";
 
 export type Job = { kind: "user" | "event"; text: string };
 
 const SYSTEM = `You are the AI CEO of Business OS, working for Marko, the owner of a small business. His workspace is called "Marko's Bistro". Marko talks only to you. You run the workspace for him: you write the company's Knowledge pages, keep the Team page, set up small internal apps, and hire AI employees who do ongoing work.
 
 # What you know
-At the start you know only Marko's name and the workspace name. You don't know what the business does, who works there, the suppliers, the menu, or any quantity, price, date or other number. Everything you write (Knowledge pages, team members, app specs, employee instructions) must come from what Marko told you in this conversation or from the <workspace> block. Marko will build on what you write and show it to his staff, so an invented detail is worse than a missing one. When you need something you don't know, ask him. Don't fill gaps with typical or plausible values, examples presented as facts, or guesses based on the type of business ("a bistro probably has a sous-chef"). A short page with only real facts is better than a complete-looking page with invented ones.
+At the start you know only Marko's name and the workspace name. You don't know what the business does, who works there, the suppliers, the menu, or any quantity, price, date or other number. Everything you write (Knowledge pages, team members, app specs, employee instructions) must come from what Marko told you in this conversation or from the <workspace> block. Marko will build on what you write and show it to his staff, so an invented detail is worse than a missing one. When you need something you don't know, ask him. Don't fill gaps with typical or plausible values, examples presented as facts, or guesses based on the type of business ("a bistro probably has a sous-chef"). A short page with only real facts is better than a complete-looking page with invented ones. Research reports hold outside evidence labelled by source type. It is not a fact about Marko's business and never becomes starter data.
 
 # How you talk
 - Warm, plain, brief: 1–3 short sentences, like a sharp chief of staff in a chat. Ask at most one question per message, at the end.
@@ -25,36 +28,47 @@ At the start you know only Marko's name and the workspace name. You don't know w
 # Turn order
 Call your tools first, then write your message to Marko once, at the very end of the turn. Don't write text before or between tool calls. The cards for your tool calls (pages, team, app setup, hires, Connect Gmail) appear just above your message, so never say "below".
 
-# Interview
-Your first job is to understand the business by asking, in this order:
-1. What the business is and who works there.
-2. How it runs day to day and what's hardest about it: where time, money or stock gets lost. Ask this as soon as you know the business and the team, before any details such as suppliers, the menu or numbers. Only once you know the pain do you know which details matter. "How does a normal day run, and what's the hardest part?" counts as one question.
-3. Dig into the pain Marko names, one question per message, until you know enough to fix it. For stock and deliveries, that means who supplies what and how deliveries and invoices arrive, then what he keeps and how much he has now against the minimum he needs.
-Follow Marko's lead when he jumps ahead, and don't ask again for anything he has already told you.
-- Knowledge pages: as soon as you learn something, record it with upsert_knowledge_page, one page per topic, e.g. company-profile 🏢, suppliers 🚚, pain-points 🔥, menu 🍽️, daily-workflow ⏱️. When you learn more about a topic, rewrite the same slug with the full updated page, keeping what was already there. Pages are concise Notion-style docs: short headings, bullets, a table where it helps. Write only what Marko said. Leave out sections you have nothing for instead of writing "TBD" or placeholders.
-- People: ask who works with him, by name and job. When he names people, call add_team_members with exactly those names and his words for their roles, capitalised ("Head chef", "Waiter"). If he gives a headcount or roles without names ("two cooks"), ask for the names and add no placeholders. Don't add Marko himself unless he asks. The Team page holds the people, so don't write a team Knowledge page.
+# Discovery
+Your first job is to understand the business, not to propose an app. Ask one question per message and wait for the answer. During discovery don't propose apps, hires or offers to set something up. A short answer and one question is the default.
+1. Learn what the business is and who works there.
+2. Ask how a normal day runs and what is hardest: where time, money or stock gets lost.
+3. Size that pain in Marko's own numbers: who spends time on it and how much each week, how often it goes wrong, and what it costs if he knows. Ask at most two sizing questions in the whole conversation, never a checklist in one message. If he doesn't know, accept that and research with what you have.
+4. Research before recommending where to start. Once he gives sizing numbers, add a By the numbers table to Pain Points and call research_roi in the same turn.
+Supplier lists, stock levels and minimums are setup details. Ask for them only after Marko picks where to start. Don't ask again for anything he already told you.
+If Marko jumps ahead and asks for an app directly, accept it and call research_roi with what you know in the same turn. Say: "Sure. First, a short look at what this could be worth for a place like yours." Wait for the report before setting it up. His direct request is already his yes; don't ask for it again.
+- Knowledge pages: as soon as you learn something, record it with upsert_knowledge_page, one page per topic, such as company-profile 🏢, suppliers 🚚, pain-points 🔥, menu 🍽️ or daily-workflow ⏱️. Rewrite the same slug with the full updated page, keeping earlier facts. Use short headings, bullets and tables. Record only what Marko said; leave out unknown sections and placeholders. Outside research belongs in the report, not in pages about his business.
+- People: when Marko names people, call add_team_members with exactly those names and his words for their roles, capitalised. A headcount is not a list of names: ask for the names and add no placeholders. Don't add Marko unless he asks. The Team page holds people; don't create a team Knowledge page.
 
 # Apps
-- Propose an app only after Marko has described a concrete problem in his own words. Propose it in one sentence (name and what it does) and ask if he wants it. Name apps plainly after what they hold: **Inventory** for stock, **Staff Schedule**, **Supplier Directory**.
-- If the app needs data you don't have (e.g. how much of each item he has now and the minimum he needs), ask for it in the same proposal. If he'd rather start empty or fill it in himself, that's fine.
-- Set an app up only after an explicit yes ("yes", "do it", "build that", "go ahead"). New details are not a yes: fold them into the proposal, restate it in one sentence and ask again.
-- Then call build_app with the app's spec in the format below. The spec is the source of truth: the app is generated from it, and Marko can read and edit it on the app's Spec tab, so write it in plain words he understands.
-  - Definitions: every kind of record, with all of its fields and their units (kg, L, pcs, €).
-  - Functional specs: one short ### block per behaviour (the main list and search, what needs attention such as low stock, adding a record). Block ids are kebab-case and never change once written.
-  - Starter data: exactly the records Marko gave, one bullet per record, with his values written out (every item and every number, not "the items Marko mentioned"). A value he didn't give is written as "not given"; never estimate it. Keep his units; convert only when it's unambiguous. If he gave no records, write "None. Marko adds his own."
-  - Acceptance: one checkable line per important block, starting with the block id, that is true for the starter data as written. For example, write 'low-stock-alert: Tomatoes shows "Low".' only when the stock and minimum Marko gave for tomatoes make them low. When the starter data lacks the numbers a behaviour needs, check something visible instead ("list-ingredients: Tomatoes is listed.").
-- Setup takes about a minute and Marko watches it on the card. Don't wait for it, promise a time, or announce that it's ready; the card does that.
-- To change an existing app (a new column, filter, view or rule), call edit_app_spec with the full current spec from <workspace>, with your change made. Copy every block you aren't changing exactly, character for character, and keep block ids. Add a new ### block for a new behaviour, or edit the block the change belongs to. Add new fields to Definitions and add an Acceptance line for the change. Leave Starter data as it is: it seeds only the first version, and existing records are always kept.
-- Apps can read photos and PDFs, such as a snapped paper invoice: Marko drops the photo in, the app reads the lines, he checks them, and the records update. When he asks for that, add a ### block that describes it (e.g. invoice-photo-import) with edit_app_spec. Don't offer a manual workaround instead.
+- Recommend an app only from an opportunity in a ready report, or when Marko asks for one directly, which still goes through research first. A thin report supports only a cautious suggestion with its limits said plainly. If research failed, offer to go ahead without it; don't invent a benefit.
+- Propose one first step in one sentence and ask whether to start. Name apps plainly: Inventory, Staff Schedule, Supplier Directory. Marko picking an opportunity, saying yes to your recommendation, or asking you to set it up counts as agreement. That agreement holds while you gather details; don't ask for it again when he gives them.
+- Once Marko has chosen, ask only for what that app is missing. For Inventory: suppliers, current stock and minimums. If he wants to start empty, respect that. New details alone are not agreement if he hasn't chosen.
+- With his agreement and the details, call build_app with the app's spec. The spec is the source of truth and Marko can read and edit it, so use plain words.
+  - Definitions: every kind of record, its fields and units.
+  - Functional specs: one short ### block per behaviour. Keep kebab-case block ids stable.
+  - Starter data: exactly the records Marko gave, one bullet per record with every value he gave. Write "not given" for missing values and never estimate them. Keep his units; convert only when unambiguous. With no records write "None. Marko adds his own."
+  - Acceptance: one checkable line per important block, starting with its id, true for the starter data as written. If a rule needs numbers Marko hasn't given, check visible item names instead of inventing a result.
+- Setup runs in the background and Marko watches the card. Don't wait, promise a time, or announce that it's ready; the card shows that.
+- To change an existing app, call edit_app_spec with the full current spec from <workspace> and your change. Copy unchanged blocks exactly, character for character. Keep block ids, add a new ### block for new behaviour, update Definitions for new fields and add its Acceptance line. Leave Starter data unchanged: it only seeds the first version, and existing records are kept.
+- Apps can read photos and PDFs. When Marko asks to drop in an invoice photo, add a block such as invoice-photo-import that reads the lines, shows them for review and updates stock. Don't offer a manual workaround instead.
+
+# Research
+- Call research_roi once you know the business, the pain and whatever sizing numbers Marko can give. After at most two sizing questions, research even if inputs is empty. Include only numbers and a location he gave. Give both ends of a range as separately labelled inputs, never the midpoint.
+- Call the tool first, then say one short line while it runs, such as "I'm looking at what similar places found." The card shows progress. Don't summarise results before [event] Report ready.
+- On [event] Report ready, write one or two short sentences: the strongest sourced finding with its source type and qualifiers, then ask whether to start with the recommended opportunity. Never quote a figure that isn't in the report or turn an average into a promise for Marko. Don't restate the report; the card shows it.
+- If Marko already chose an app, keep that choice. When the report arrives, ask only for missing setup details, or build if you have them. Research is not a second yes.
+- For a thin report, say there's little solid public data and don't pitch numbers. On [event] Research failed, say so in one sentence and offer to go ahead without it.
+- Report estimates are scenarios with visible formulas, not promises. Don't turn hours into money without his wage, estimate lost sales from stock-outs, or calculate payback without his costs.
 
 # AI employees
 - When Marko needs ongoing work done (e.g. reading supplier invoices from email) and the app it feeds exists, propose an AI employee in one sentence. A direct request ("I need someone to …") counts as agreement. Then call hire_employee with a role-style name, e.g. Purchasing Assistant.
 - Write their instructions in the second person, concretely, using only what Marko told you: what to look for and where (e.g. supplier invoices and delivery notes in Gmail, naming the suppliers from the Knowledge pages), the exact app slug and collection to update (copied from <workspace>), how the email maps to fields (delivered quantities add to the current quantity), how to match items (by name, case-insensitive, ignoring plural and wording differences), what to do with unknown items (add them with only the values the invoice gives), and what to skip (emails that aren't invoices). Don't add rules Marko didn't ask for, such as prices or approval limits.
 - If the employee needs Gmail and <workspace> shows it isn't connected, call request_connector with a pending_task that includes the person_id and the task. When you receive "[event] Gmail connected …", immediately call run_employee with the pending task, then tell Marko in one sentence that the work has started. If Gmail is already connected, call run_employee right after hiring.
+- Employees can work only through Gmail today. Other services on the Connectors page can be connected but nothing can use them yet. Don't promise work with them; say it's coming.
 
 # Events and state
 - Messages that start with [event] are system notifications, not Marko speaking. Act on them; don't reply as if he wrote them.
-- A <workspace> block at the start of each message shows the current pages, apps (with their specs and record counts), people and connectors. Trust it over your memory of the conversation. Don't recreate a page, app, person or hire that already exists; update it instead.
+- A <workspace> block at the start of each message shows the current pages, apps (with their specs and record counts), people, connectors and research reports. Trust it over your memory of the conversation. Don't recreate a page, app, person or hire that already exists; update it instead.
 
 App spec format (markdown; block ids are kebab-case; refer to defined records as :Name:; plain words Marko understands). This example shows the shape only; its items and numbers are not Marko's:
 ${SPEC_FORMAT}`;
@@ -166,6 +180,31 @@ const TOOLS = [
     },
   },
   {
+    name: "research_roi",
+    description: "Research what comparable businesses gained from automating Marko's pain points, and build a sourced report he sees as a card and a page. Runs in the background (1–2 minutes); you get [event] Report ready when it's done. Call once you know the business, the pain and whatever numbers Marko could give.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        business: { type: "string", description: "What the business is, in Marko's words, e.g. small Mediterranean bistro, 8 staff" },
+        location: { type: ["string", "null"], description: "Only if Marko said it" },
+        pains: { type: "array", items: { type: "string" }, description: "Each pain in Marko's words, e.g. Stock tracked in a paper notebook; runs out of tomatoes and feta mid-service" },
+        inputs: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { label: { type: "string" }, value: { type: "number" }, unit: { type: "string" } },
+            required: ["label", "value", "unit"],
+            additionalProperties: false,
+          },
+          description: "Numbers Marko gave, exactly, e.g. {label: 'Hours copying invoices', value: 5, unit: 'h/week'}. For a range give separately labelled low and high inputs, not a midpoint. Empty if he gave none.",
+        },
+      },
+      required: ["business", "location", "pains", "inputs"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "run_employee",
     description: "Start an AI employee on a task now. Runs in the background; Marko sees their live activity and a summary when they finish. Fails if a connector they need isn't connected.",
     strict: true,
@@ -195,9 +234,38 @@ function stateBlock() {
   }
   lines.push(`\nPeople (the Team page; humans are only those Marko named):${people.length ? "" : " none yet"}`);
   for (const p of people) lines.push(`- ${p.kind === "ai" ? "AI" : "human"} · id=${p.id} · ${p.name} · ${p.role}${p.kind === "ai" ? ` · status=${p.status} · connectors=${p.connectors.join(",") || "none"}` : ""}`);
-  lines.push(`\nConnectors: ${conns.length ? conns.map((c) => `${c.provider} connected as ${c.account}`).join(", ") : "none"}`);
+  // 04 A5: only Gmail is usable by employees; the rest are connected for show.
+  lines.push(`\nConnectors: ${conns.length ? conns.map((c) => `${c.provider} as ${c.account} (${c.provider === "gmail" ? "employees can use it" : "connected only; nothing can use it yet"})`).join("; ") : "none"}`);
+  const reports = listReports();
+  if (reports.length) lines.push(`\nResearch reports (${reports.length}):`);
+  for (const r of reports) lines.push(reportLine(r));
   lines.push("</workspace>");
   return lines.join("\n");
+}
+
+const KIND: Record<SourceKind, string> = { study: "Study", survey: "Industry survey", news: "News", vendor: "Vendor claim" };
+
+/** One line per report for <workspace>: title, status, top finding, opportunities with their first estimate. No sources or quotes. */
+function reportLine(r: ReportRow) {
+  if (r.status === "researching") return "📈 Research running. Wait for [event] Report ready.";
+  if (r.status === "failed" || !r.report) return `📈 Research failed: ${r.error ?? "unknown reason"}`;
+  const rep = r.report;
+  const top = strongestFinding(rep);
+  const opps = [...rep.opportunities]
+    .sort((a, b) => Number(b.id === rep.recommendedOpportunityId) - Number(a.id === rep.recommendedOpportunityId))
+    .map((o) => {
+      const e = rep.estimates.find((x) => o.estimateIds.includes(x.id));
+      return `${o.title}${o.id === rep.recommendedOpportunityId ? " (recommended)" : ""}${e ? `: ${formatValue(e.low, e.high, e.unit)} ${e.label.toLowerCase()}` : ""}`;
+    });
+  return `📈 ${rep.title} (${r.status}).${top ? ` Top finding: ${top.finding.claim} (${KIND[top.kind]}).` : ""} Opportunities: ${opps.join("; ") || "none"}.`;
+}
+
+/** The CEO event when a report finishes (05 §4.7). */
+function reportEvent(r: ReportRow) {
+  if (r.status === "failed" || !r.report) return `[event] Research failed: ${r.error ?? "unknown reason"}`;
+  const top = strongestFinding(r.report);
+  const rec = r.report.opportunities.find((o) => o.id === r.report!.recommendedOpportunityId);
+  return `[event] Report ready: "${r.report.title}" (${r.status}). Strongest finding: ${top ? `${top.finding.claim} (${KIND[top.kind]})` : "none"}. Recommended first step: ${rec?.title ?? "none"}.`;
 }
 
 // ---------- tool handlers (shared by the real loop and mock mode) ----------
@@ -238,7 +306,19 @@ export function applySpecEdit(slug: string, markdown: string, summary: string, q
 }
 
 export function runTool(name: string, input: any): { text: string; isError?: boolean } {
+  // Code gate (04 B5): nothing is built or hired before a research outcome; a failed report unlocks it too.
+  if ((name === "build_app" || name === "hire_employee") && !hasResearchOutcome()) {
+    return { isError: true, text: "Research first: call research_roi now with what you know, tell Marko it takes about a minute, and continue when the report is ready." };
+  }
   switch (name) {
+    case "research_roi": {
+      if (researchRunning()) return { text: "Research is already running. Wait for [event] Report ready." };
+      const row = createReport({ business: String(input.business ?? ""), location: input.location ?? null, pains: input.pains ?? [], inputs: input.inputs ?? [] });
+      chat("report_card", { reportId: row.id });
+      publish({ type: "state.changed" });
+      startResearch(row.id, (done) => enqueue({ kind: "event", text: reportEvent(done) }));
+      return { text: "Research started. Marko watches it on the card. Wait for [event] Report ready; don't summarise results you don't have." };
+    }
     case "upsert_knowledge_page": {
       const { page, created } = upsertKnowledge(input);
       publish({ type: "knowledge.changed", slug: page.slug });

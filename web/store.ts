@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import type { Activity, App, ChatItem, KnowledgePage, Person } from "../server/db";
 import type { BusEvent } from "../server/bus";
+import type { ReportRow } from "../server/report";
 
-export type { Activity, App, ChatItem, KnowledgePage, Person };
+export type { Activity, App, ChatItem, KnowledgePage, Person, ReportRow };
 export type Connector = { provider: string; account: string; connectedAt: number };
 
 type State = {
@@ -14,6 +15,7 @@ type State = {
   apps: App[];
   people: Person[];
   connectors: Connector[];
+  reports: ReportRow[];
   activity: Activity[];
   chat: ChatItem[];
   /** Text of the CEO reply currently streaming in. */
@@ -26,6 +28,8 @@ type State = {
   path: string;
   /** Things that just appeared/changed: key → timestamp, for fade-in / highlight animations. */
   fresh: Record<string, number>;
+  /** Connector id whose sign-in dialog is open (one dialog for the whole app, 05 §3.2). */
+  connectDialog: string | null;
 };
 
 export const useStore = create<State>(() => ({
@@ -37,6 +41,7 @@ export const useStore = create<State>(() => ({
   apps: [],
   people: [],
   connectors: [],
+  reports: [],
   activity: [],
   chat: [],
   live: "",
@@ -46,6 +51,7 @@ export const useStore = create<State>(() => ({
   unread: false,
   path: location.pathname,
   fresh: {},
+  connectDialog: null,
 }));
 
 const set = useStore.setState;
@@ -86,6 +92,7 @@ export async function refresh() {
       ...s.knowledge.filter((k: KnowledgePage) => !prev.knowledge.some((p) => p.slug === k.slug)).map((k: KnowledgePage) => `k:${k.slug}`),
       ...s.apps.filter((a: App) => !prev.apps.some((p) => p.slug === a.slug)).map((a: App) => `a:${a.slug}`),
       ...s.people.filter((a: Person) => !prev.people.some((p) => p.id === a.id)).map((a: Person) => `p:${a.id}`),
+      ...s.reports.filter((r: ReportRow) => !prev.reports.some((p) => p.id === r.id)).map((r: ReportRow) => `r:${r.id}`),
     ];
     if (newKeys.length) markFresh(newKeys);
   }
@@ -98,6 +105,11 @@ export async function refresh() {
     apps: s.apps,
     people: s.people,
     connectors: s.connectors,
+    // A snapshot can be older than a report.updated that arrived while it was in flight: keep the newer row.
+    reports: s.reports.map((r: ReportRow) => {
+      const cur = get().reports.find((x) => x.id === r.id);
+      return cur && cur.updatedAt > r.updatedAt ? cur : r;
+    }),
     activity: s.activity,
     ...(prev.loaded ? {} : { busy: !!s.busy }),
     // Chat history only on first load; afterwards the socket is the source of truth (avoids clobbering the live bubble).
@@ -170,6 +182,12 @@ export function handle(ev: BusEvent) {
       markFresh([`k:${ev.slug}`, `kc:${ev.slug}`]);
       void refresh();
       break;
+    case "report.updated": {
+      const r = ev.report;
+      if (!get().reports.some((x) => x.id === r.id)) markFresh([`r:${r.id}`]);
+      set((s) => ({ reports: s.reports.some((x) => x.id === r.id) ? s.reports.map((x) => (x.id === r.id ? r : x)) : [...s.reports, r] }));
+      break;
+    }
     case "state.changed":
       void refresh();
       break;
@@ -184,9 +202,22 @@ export async function sendChat(text: string) {
   return r.ok;
 }
 
-export async function connectGmail() {
-  const r = await fetch("/api/connectors/gmail/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account: "marko@markosbistro.com" }) });
-  return r.ok;
+export const openConnector = (id: string) => set({ connectDialog: id });
+export const closeConnector = () => set({ connectDialog: null });
+
+/** Connect a provider as `account`. Resolves to an error message, or null on success. */
+export async function connect(id: string, account: string): Promise<string | null> {
+  const r = await fetch(`/api/connectors/${encodeURIComponent(id)}/connect`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account }) }).catch(() => null);
+  if (!r) return "Couldn't reach Business OS. Try again.";
+  if (!r.ok) return (await r.json().catch(() => null))?.error ?? "Couldn't connect. Try again.";
+  await refresh();
+  return null;
+}
+
+export async function disconnect(id: string) {
+  const r = await fetch(`/api/connectors/${encodeURIComponent(id)}/disconnect`, { method: "POST" }).catch(() => null);
+  if (r?.ok) await refresh();
+  return !!r?.ok;
 }
 
 /** Stretch A: save an edited spec; the server regenerates the app if a block that drives it changed. */

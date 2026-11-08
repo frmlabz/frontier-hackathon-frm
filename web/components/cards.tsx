@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { ArrowUpRight, Check, FileText, Plug, RotateCcw, Sparkles, Users, X } from "lucide-react";
-import { connectGmail, navigate, useStore, type App, type Person } from "../store";
-import { Badge, Button, GmailLogo, Link, PersonAvatar, Spinner, cx } from "./common";
+import { ArrowUpRight, Check, FileText, Plug, Sparkles, Users, X } from "lucide-react";
+import { navigate, openConnector, useStore, type App, type Person } from "../store";
+import { Badge, Button, Link, PersonAvatar, Spinner, cx } from "./common";
+import { GmailLogo } from "../logos";
+import type { ReportRow } from "../../server/report";
+import { EstimateTile, Progress, headlineEstimates } from "./ReportPage";
 
 export const STEPS = ["Designing your app", "Writing the app", "Packaging", "Ready"];
 
@@ -151,8 +154,8 @@ export function HireCard({ payload }: { payload: { personId: string } }) {
 }
 
 // ---------- Connector card ----------
-export function ConnectorCardView({ reason, account, onConnect }: { reason: string; account?: string; onConnect: () => Promise<boolean> }) {
-  const [state, setState] = useState<"idle" | "connecting" | "error">("idle");
+/** The chat card for Gmail. Connect opens the same sign-in dialog as the Connectors page (04 A2). */
+export function ConnectorCardView({ reason, account, onConnect }: { reason: string; account?: string; onConnect: () => void }) {
   return (
     <CardShell>
       <div className="flex items-center gap-3 px-4 py-3.5">
@@ -169,17 +172,8 @@ export function ConnectorCardView({ reason, account, onConnect }: { reason: stri
             Connected
           </span>
         ) : (
-          <Button
-            variant="primary"
-            disabled={state === "connecting"}
-            onClick={async () => {
-              setState("connecting");
-              const ok = await onConnect().catch(() => false);
-              setState(ok ? "idle" : "error");
-            }}
-            className="shrink-0 min-w-[132px]"
-          >
-            {state === "connecting" ? <><Spinner size={13} className="!border-white/40 !border-t-white" /> Connecting…</> : state === "error" ? <><RotateCcw size={13} /> Try again</> : "Connect Gmail"}
+          <Button variant="primary" onClick={onConnect} className="shrink-0 min-w-[132px]">
+            Connect Gmail
           </Button>
         )}
       </div>
@@ -189,7 +183,7 @@ export function ConnectorCardView({ reason, account, onConnect }: { reason: stri
 
 export function ConnectorCard({ payload }: { payload: { provider: string; reason: string } }) {
   const conn = useStore((s) => s.connectors.find((c) => c.provider === payload.provider));
-  return <ConnectorCardView reason={payload.reason} account={conn?.account} onConnect={connectGmail} />;
+  return <ConnectorCardView reason={payload.reason} account={conn?.account} onConnect={() => openConnector(payload.provider)} />;
 }
 
 // ---------- Event line ----------
@@ -218,4 +212,39 @@ export function EventLine({ payload }: { payload: { icon?: string; text: string;
       </span>
     </div>
   );
+}
+
+// ---------- Report card ----------
+export function ReportCardView({ row }: { row: ReportRow }) {
+  const r = row.report;
+  const done = (row.status === "ready" || row.status === "thin") && r;
+  return (
+    <CardShell>
+      <div data-report-card={row.id} data-status={row.status} className="px-4 pt-3.5 pb-3.5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-center text-[22px] shrink-0">📈</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-[15px] text-ink-strong">{done ? r.title : row.status === "failed" ? "Research didn't finish" : "Researching what automation is worth"}</div>
+            {done ? <div className="text-[13px] text-muted">{r.summary}</div> : row.status === "failed" ? <div className="text-[13px] text-red">{row.error ?? "The research didn't produce a report."}</div> : null}
+            {row.status === "researching" && <div className="mt-2"><Progress row={row} /></div>}
+          </div>
+          {done && (
+            <Button variant="primary" size="sm" onClick={() => navigate(`/report/${row.id}`)} className="anim-pop">
+              Open report <ArrowUpRight size={14} />
+            </Button>
+          )}
+        </div>
+        {done && row.status === "ready" && headlineEstimates(r).length > 0 && (
+          <div className="mt-3 pl-[52px] grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {headlineEstimates(r).map((e) => <EstimateTile key={e.id} r={r} e={e} compact />)}
+          </div>
+        )}
+      </div>
+    </CardShell>
+  );
+}
+
+export function ReportCard({ payload }: { payload: { reportId: string } }) {
+  const row = useStore((s) => s.reports.find((r) => r.id === payload.reportId));
+  return row ? <ReportCardView row={row} /> : null;
 }

@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { seedEmails } from "./seed";
+import type { ReportRow, ResearchRequest } from "./report";
 
 // Mock mode gets its own data dir so scripted runs never leak into the real demo DB.
 export const MOCK = process.env.BOS_MOCK === "1";
@@ -25,7 +26,19 @@ CREATE TABLE IF NOT EXISTS connectors(provider TEXT PRIMARY KEY, account TEXT, c
 CREATE TABLE IF NOT EXISTS emails(id TEXT PRIMARY KEY, from_name TEXT, from_addr TEXT, subject TEXT, body TEXT, received_at INTEGER);
 CREATE TABLE IF NOT EXISTS processed_emails(message_id TEXT PRIMARY KEY, person_id TEXT);
 CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS reports(
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL CHECK(status IN ('researching','ready','thin','failed')),
+  input_json TEXT NOT NULL,
+  report_json TEXT,
+  progress_json TEXT NOT NULL,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `);
+// A research run doesn't survive a restart; its card shows it failed (no CEO event).
+db.exec("UPDATE reports SET status='failed', error='Stopped when the server restarted' WHERE status='researching'");
 try {
   db.exec("ALTER TABLE apps RENAME COLUMN requirements TO spec"); // DBs from before Stretch A
 } catch {}
@@ -63,6 +76,7 @@ if ((db.query("SELECT COUNT(*) c FROM emails").get() as any).c === 0) {
 export const kv = {
   get: (k: string) => (db.query("SELECT value FROM kv WHERE key=?").get(k) as any)?.value as string | undefined,
   set: (k: string, v: string) => db.query("INSERT OR REPLACE INTO kv VALUES (?,?)").run(k, v),
+  delete: (k: string) => db.query("DELETE FROM kv WHERE key=?").run(k),
 };
 
 // ---------- messages (exact Anthropic history, append-only) ----------
@@ -234,6 +248,32 @@ export const listConnectors = () =>
 export const isConnected = (provider: string) => !!db.query("SELECT 1 FROM connectors WHERE provider=?").get(provider);
 export const connect = (provider: string, account: string) =>
   db.query("INSERT OR REPLACE INTO connectors VALUES (?,?,?)").run(provider, account, now());
+export const disconnect = (provider: string) => db.query("DELETE FROM connectors WHERE provider=?").run(provider);
+
+// ---------- research reports ----------
+const toReport = (r: any): ReportRow => ({
+  id: r.id, status: r.status, input: JSON.parse(r.input_json), report: r.report_json ? JSON.parse(r.report_json) : null,
+  progress: JSON.parse(r.progress_json), error: r.error, createdAt: r.created_at, updatedAt: r.updated_at,
+});
+export const listReports = () => (db.query("SELECT * FROM reports ORDER BY created_at").all() as any[]).map(toReport);
+export const getReport = (id: string) => {
+  const r = db.query("SELECT * FROM reports WHERE id=?").get(id);
+  return r ? toReport(r) : null;
+};
+export function createReport(input: ResearchRequest): ReportRow {
+  const id = crypto.randomUUID().slice(0, 8);
+  db.query("INSERT INTO reports VALUES (?,?,?,?,?,?,?,?)").run(id, "researching", JSON.stringify(input), null, JSON.stringify({ lines: [], sources: 0 }), null, now(), now());
+  return getReport(id)!;
+}
+export function patchReport(id: string, p: Partial<Pick<ReportRow, "status" | "report" | "progress" | "error">>): ReportRow {
+  const n = { ...getReport(id)!, ...p };
+  db.query("UPDATE reports SET status=?, report_json=?, progress_json=?, error=?, updated_at=? WHERE id=?").run(
+    n.status, n.report ? JSON.stringify(n.report) : null, JSON.stringify(n.progress), n.error, now(), id,
+  );
+  return getReport(id)!;
+}
+export const researchRunning = () => !!db.query("SELECT 1 FROM reports WHERE status='researching'").get();
+export const hasResearchOutcome = () => !!db.query("SELECT 1 FROM reports WHERE status IN ('ready','thin','failed')").get();
 
 // ---------- mock inbox ----------
 export type Email = { id: string; fromName: string; fromAddr: string; subject: string; body: string; receivedAt: number };
@@ -256,5 +296,6 @@ export function snapshot() {
     connectors: listConnectors(),
     activity: listActivity(),
     chat: listChatItems(),
+    reports: listReports(),
   };
 }

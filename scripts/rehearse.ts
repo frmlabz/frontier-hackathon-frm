@@ -1,9 +1,13 @@
 // Drives the §12 demo script against a running server over HTTP and checks the outcome of each step.
-// Usage: bun scripts/rehearse.ts [baseUrl] [--step5] [--step6]  (step 6 implies 5)
+// Usage: bun scripts/rehearse.ts [baseUrl] [--step5] [--step6] [--gmail-first] [--jump]  (step 6 implies 5)
+//   --gmail-first  connect Gmail from the Connectors page before the hire (the employee should start at once)
+//   --jump         the jump-ahead scenario instead: "Just build me an inventory app" → research first, app after the report
 // Start from a fresh DB (bun run reset). Works for mock and real models; real runs take a few minutes.
 const BASE = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost:3000";
 const STEP6 = process.argv.includes("--step6");
 const STEP5 = STEP6 || process.argv.includes("--step5");
+const GMAIL_FIRST = process.argv.includes("--gmail-first");
+const JUMP = process.argv.includes("--jump");
 const t0 = Date.now();
 /** The app's main collection: the one with the most rows (an app may also keep e.g. a suppliers list). */
 async function mainColl(app: any): Promise<string | undefined> {
@@ -54,25 +58,62 @@ async function say(text: string) {
 }
 
 const inv = (s: any) => s.apps.find((a: any) => /inventor|stock/i.test(a.name));
+const ceoTexts = (s: any) => s.chat.filter((c: any) => c.kind === "ceo").map((c: any) => String(c.payload.text));
+const reportCards = (s: any) => s.chat.filter((c: any) => c.kind === "report_card").length;
+
+/** Waits for the running report to finish and for the CEO reply its [event] starts (which may already have landed). */
+async function awaitReport() {
+  const r = await until("report finishes", (x) => x.reports.length && x.reports.every((r: any) => r.status !== "researching") && x.reports.at(-1), 400);
+  log(`  report ${r.status}: ${r.report?.title ?? r.error}`);
+  const s = await until("CEO replies to the report", (x) => !x.busy && x.chat.some((c: any) => c.kind === "ceo" && c.createdAt >= r.updatedAt) && x, 400);
+  log("ceo:", ceoTexts(s).at(-1).replace(/\s+/g, " ").slice(0, 260));
+  return s;
+}
+
+const MSG_INTRO = "I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place.";
+const MSG_STOCK = "Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. Right now we have 4 kg tomatoes (need 10), 2 kg feta (need 5), 6 L olive oil (need 10), 3 kg lemons (need 4), 2 bunches of basil (need 5), 1.5 kg garlic (need 1), 4 kg Kalamata olives (need 2), 5 kg chicken thighs (need 8), 3 kg lamb shoulder (need 4), 18 kg flour (need 10), 3 kg arborio rice (need 5) and 4 kg sea salt (need 2).";
+/** An app proposal or an offer to set something up, during discovery. */
+const PROPOSES = /\b(app|set (it|this|that|one) up|build)\b/i;
 
 // ---- 1. empty hub
 let s = await state();
 log(`model ${s.model}${s.mock ? " (mock)" : ""}`);
 check(s.chat.length === 0 && s.apps.length === 0, "fresh DB: empty chat, no apps");
 
-// ---- 2. company context → knowledge pages
-await say("I run a small Mediterranean bistro. Ana is my head chef, Luka is sous-chef, Jovan and Mila are line cooks, Sara, Nikola and Tea wait tables, and Petar manages the place.");
-await say("The hardest part is inventory management and intake. We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service. Deliveries come in all week, the invoices arrive by email, and someone has to copy them into the notebook by hand.");
-s = await say("Adriatic Fresh Produce for veg, Kalamata Imports for olive oil and feta, Novak Butchers for meat, Mlin for flour. Right now we have 4 kg tomatoes (need 10), 2 kg feta (need 5), 6 L olive oil (need 10), 3 kg lemons (need 4), 2 bunches of basil (need 5), 1.5 kg garlic (need 1), 4 kg Kalamata olives (need 2), 5 kg chicken thighs (need 8), 3 kg lamb shoulder (need 4), 18 kg flour (need 10), 3 kg arborio rice (need 5) and 4 kg sea salt (need 2).");
-check(s.knowledge.length >= 2, `knowledge pages created (${s.knowledge.map((k: any) => k.title).join(", ")})`);
+if (JUMP) {
+  // ---- jump-ahead: a direct request for the app goes through research first; the request itself is the yes
+  await say(MSG_INTRO);
+  s = await say("Just build me an inventory app.");
+  check(s.reports.length === 1 && reportCards(s) === 1, `research_roi called, one report card (${s.reports.length})`);
+  check(!inv(s), "no app before the report");
+  s = await awaitReport();
+  if (!inv(s)) {
+    check(/supplier|stock|how much/i.test(ceoTexts(s).at(-1)), "after the report the CEO asks for setup details, not a second yes");
+    s = await say(MSG_STOCK);
+  }
+} else {
+  // ---- 2. discovery: business, pain, sizing → research (no app, hire or proposal)
+  await say(MSG_INTRO);
+  await say("The hardest part is inventory management and intake. We track stock in a paper notebook that nobody keeps up to date, so we run out of tomatoes and feta mid-service. Deliveries come in all week, the invoices arrive by email, and someone has to copy them into the notebook by hand.");
+  s = await say("Petar spends about 5 hours a week copying invoices, and we run out of something two or three times a week. We do around 120 covers a day and spend about €9,000 a month on food.");
+  check(s.knowledge.length >= 2, `knowledge pages created (${s.knowledge.map((k: any) => k.title).join(", ")})`);
+  check(!inv(s) && !s.people.some((p: any) => p.kind === "ai"), "no app or AI person after messages 1–3");
+  const proposals = ceoTexts(s).filter((t: string) => PROPOSES.test(t));
+  check(!proposals.length, `no app proposal during discovery${proposals.length ? `: "${proposals[0].slice(0, 120)}"` : ""}`);
+  check(reportCards(s) === 1 && s.reports.length === 1, `exactly one report card (${reportCards(s)})`);
+  s = await awaitReport();
+  const rec = ceoTexts(s).at(-1);
+  check(/inventor/i.test(rec) && rec.trim().endsWith("?"), "the CEO recommends Inventory as a question");
+  check(!inv(s), "nothing built on the report alone");
 
-// ---- 3. inventory app (§12: the CEO proposes it and waits for a yes)
-check(!inv(s), "CEO proposed the app and waited for a yes");
-check(!s.people.some((p: any) => p.kind === "ai"), "nobody hired before the app exists");
-if (!inv(s)) s = await say("Yes, build that.");
-if (!inv(s)) s = await say("Yes please, build the Inventory app now.");
+  // ---- 3. inventory app (§12: the choice holds while the CEO gathers stock; no second yes)
+  s = await say("Yes, let's start with that.");
+  check(!inv(s) && /supplier|stock/i.test(ceoTexts(s).at(-1)) && ceoTexts(s).at(-1).includes("?"), "the CEO asks about suppliers and stock");
+  if (!inv(s)) s = await say(MSG_STOCK);
+}
 const app = inv(s);
-check(app, `inventory app created (${app?.name})`);
+check(app, `inventory app created without a second yes (${app?.name})`);
+if (JUMP) check(app && app.createdAt >= (s.reports[0]?.updatedAt ?? Infinity), "the app was created after the report finished");
 if (app) {
   const done = await until("inventory built", (x) => {
     const a = x.apps.find((y: any) => y.slug === app.slug);
@@ -86,18 +127,35 @@ if (app) {
   check(recs.length >= 3, `seeded ${recs.length} records in ${coll}`);
 }
 
+if (JUMP) {
+  log(failures ? `FAILED: ${failures} check(s)` : "ALL CHECKS PASSED");
+  process.exit(failures ? 1 : 0);
+}
+
 // ---- 4. hire + gmail + run
+const appNow = inv(await state());
+const coll = await mainColl(appNow);
+const before = coll ? await (await fetch(`${BASE}/api/apps/${appNow.slug}/${coll}`)).json() : [];
+const connectGmail = () => post("/api/connectors/gmail/connect", { account: "marko@markosbistro.com" });
+if (GMAIL_FIRST) {
+  log("connecting Gmail from the Connectors page");
+  const n = ceoTexts(await state()).length;
+  await connectGmail();
+  await Bun.sleep(1500);
+  const x = await state();
+  check(!x.busy && ceoTexts(x).length === n, "connecting from the page adds no CEO turn");
+}
 s = await say("I need someone to pull supplier invoices from Gmail and update stock.");
 const hire = s.people.find((p: any) => p.kind === "ai");
 check(hire, `AI employee hired (${hire?.name})`);
-check(s.chat.some((c: any) => c.kind === "connector_card"), "connector card shown");
-if (!s.chat.some((c: any) => c.kind === "connector_card") && hire) s = await say("Yes, go ahead and connect Gmail for them.");
-const appNow = inv(s);
-const coll = await mainColl(appNow);
-const before = coll ? await (await fetch(`${BASE}/api/apps/${appNow.slug}/${coll}`)).json() : [];
-log("clicking Connect Gmail");
-await post("/api/connectors/gmail/connect", { account: "marko@markosbistro.com" });
-await until("employee starts", (x) => x.people.some((p: any) => p.kind === "ai" && p.status === "working"), 120).catch(() => null);
+if (GMAIL_FIRST) {
+  check(!s.chat.some((c: any) => c.kind === "connector_card"), "Gmail already connected: no connector card");
+} else {
+  check(s.chat.some((c: any) => c.kind === "connector_card"), "connector card shown");
+  log("clicking Connect Gmail");
+  await connectGmail();
+}
+await until("employee starts", (x) => x.people.some((p: any) => p.kind === "ai" && (p.status === "working" || x.activity.some((a: any) => a.personId === p.id))), 120).catch(() => null);
 await until("employee finishes", (x) => !x.people.some((p: any) => p.status === "working") && !x.busy, 600);
 s = await state();
 const acts = s.activity.filter((a: any) => a.personId === hire?.id);
@@ -113,6 +171,16 @@ const tom = after.filter((r: any) => /tomato/i.test(JSON.stringify(r)));
 check(tom.length <= 1, `no duplicate tomato rows (${tom.length})`);
 if (qtyKey) log("  tomatoes:", tom.map((r: any) => `${r[qtyKey]}`).join(","));
 for (const a of acts.slice().reverse()) log("   ·", a.text.slice(0, 140));
+{
+  // A repeat connect is a no-op: no second event line and no CEO turn (the pending task was consumed once).
+  const x0 = await state();
+  const events = (x: any) => x.chat.filter((c: any) => c.kind === "event" && /Gmail connected/.test(c.payload.text)).length;
+  await connectGmail();
+  await Bun.sleep(1500);
+  const x1 = await state();
+  check(events(x1) === events(x0) && events(x1) === 1 && ceoTexts(x1).length === ceoTexts(x0).length && !x1.busy, "repeat connect: no duplicate event, no CEO turn");
+  check(x1.activity.filter((a: any) => a.personId === hire?.id && /^Started:/.test(a.text)).length === 1, "the employee ran once");
+}
 
 // ---- 5. update app (P1)
 if (STEP5 && appNow) {

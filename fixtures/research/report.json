@@ -1,0 +1,43 @@
+{
+  "title": "What automating stock and invoice intake could mean for Marko's Bistro",
+  "summary": "Restaurants that measured and cut kitchen food waste mostly earned back what they spent, and automated invoice entry takes a fraction of the manual time. Inventory is the natural first step; invoice intake can follow once it exists.",
+  "sources": [
+    { "id": "S1", "title": "The Business Case for Reducing Food Loss and Waste: Restaurants", "publisher": "Champions 12.3 (WRI and WRAP)", "url": "https://champions123.org/the-business-case-for-reducing-food-loss-and-waste-restaurants/", "kind": "study", "year": 2019 },
+    { "id": "S2", "title": "5 Food Waste Myths to Debunk – Now!", "publisher": "LeanPath", "url": "https://info.leanpath.com/webinars/072016-myths-registration", "kind": "vendor", "year": 2016 },
+    { "id": "S3", "title": "How to Calculate the True Cost of AP Automation", "publisher": "Stampli (citing APQC)", "url": "https://www.stampli.com/blog/ap-automation/ap-automation-cost/", "kind": "vendor", "year": null }
+  ],
+  "findings": [
+    { "id": "F1", "area": "Return on cutting food waste", "claim": "Across 114 restaurants in 12 countries, the average restaurant saved $7 for every $1 it invested in reducing kitchen food waste.", "low": 7, "high": 7, "unit": "$ saved per $1 invested", "sourceIds": ["S1"], "quote": "with the average restaurant saving $7 for every $1 invested in reducing kitchen food waste." },
+    { "id": "F2", "area": "Food waste reduction", "claim": "Within one year, the restaurants cut kitchen food waste by 26% on average.", "low": 26, "high": 26, "unit": "% less kitchen food waste", "sourceIds": ["S1"], "quote": "Within just one year, the restaurants had reduced food waste from their kitchens by 26 percent on average" },
+    { "id": "F3", "area": "Payback, year one", "claim": "Over 75% of the restaurants recouped their investment within one year.", "low": 75, "high": 75, "unit": "% of restaurants recouped", "sourceIds": ["S1"], "quote": "over 75 percent had recouped their investment." },
+    { "id": "F4", "area": "Payback, year two", "claim": "Within two years, 89% had recouped their investment.", "low": 89, "high": 89, "unit": "% of restaurants recouped", "sourceIds": ["S1"], "quote": "Within two years, 89 percent had recouped their investment." },
+    { "id": "F5", "area": "Kitchen food waste", "claim": "LeanPath says most foodservice operations throw away 4–10% of the food they buy before it reaches a guest.", "low": 4, "high": 10, "unit": "% of food purchases wasted", "sourceIds": ["S2"], "quote": "Most foodservice operations throw away between 4-10% of the food they purchase before it's ever served to a guest." },
+    { "id": "F6", "area": "Manual invoice entry", "claim": "With manual data entry, one full-time person processes about 6,082 invoices a year (APQC benchmark, via Stampli).", "low": 6082, "high": 6082, "unit": "invoices per FTE per year", "sourceIds": ["S3"], "quote": "According to accounts payable benchmarking research by the American Productivity and Quality Center (APQC), companies using manual data entry processes only process 6,082 invoices per year per FTE and companies with fully-automated accounts payable processes handle 23,333 invoices per year per FTE." },
+    { "id": "F7", "area": "Automated invoice processing", "claim": "With fully automated accounts payable, one full-time person handles about 23,333 invoices a year (APQC benchmark, via Stampli).", "low": 23333, "high": 23333, "unit": "invoices per FTE per year", "sourceIds": ["S3"], "quote": "According to accounts payable benchmarking research by the American Productivity and Quality Center (APQC), companies using manual data entry processes only process 6,082 invoices per year per FTE and companies with fully-automated accounts payable processes handle 23,333 invoices per year per FTE." }
+  ],
+  "caseStudies": [],
+  "estimates": [
+    { "id": "E1", "label": "Less food waste", "inputLabel": "Monthly food spend", "factors": [ { "op": "pct", "findingId": "F5", "denominatorId": null }, { "op": "pct", "findingId": "F2", "denominatorId": null } ] },
+    { "id": "E2", "label": "Time back from invoice copying", "inputLabel": "Hours copying invoices", "factors": [ { "op": "ratio-remaining", "findingId": "F6", "denominatorId": "F7" } ] },
+    { "id": "E3", "label": "Possible kitchen waste today", "inputLabel": "Monthly food spend", "factors": [ { "op": "pct", "findingId": "F5", "denominatorId": null } ] },
+    { "id": "E4", "label": "After a 26% cut", "inputLabel": "Monthly food spend", "factors": [ { "op": "pct", "findingId": "F5", "denominatorId": null }, { "op": "pct-remaining", "findingId": "F2", "denominatorId": null } ] },
+    { "id": "E5", "label": "Invoice copying with automated intake", "inputLabel": "Hours copying invoices", "factors": [ { "op": "ratio", "findingId": "F6", "denominatorId": "F7" } ] }
+  ],
+  "charts": [
+    { "title": "Possible kitchen food waste", "bars": [ { "label": "Today", "ref": "E3" }, { "label": "After the study's average cut", "ref": "E4" } ] },
+    { "title": "Invoice copying", "bars": [ { "label": "Today (you told us)", "ref": "input:Hours copying invoices" }, { "label": "With automated intake", "ref": "E5" } ] },
+    { "title": "Restaurants that earned back their investment", "bars": [ { "label": "Within 1 year (over 75%)", "ref": "F3" }, { "label": "Within 2 years", "ref": "F4" } ] }
+  ],
+  "opportunities": [
+    { "id": "O1", "title": "Inventory", "pain": "Stock is tracked in a paper notebook that nobody keeps up to date; tomatoes and feta run out mid-service.", "what": "Keep stock in one place and flag what's running low, the first step to measuring and cutting waste.", "estimateIds": ["E1"], "findingIds": ["F5", "F2", "F1"] },
+    { "id": "O2", "title": "Invoice intake", "pain": "Invoices arrive by email and someone copies them into the notebook by hand.", "what": "Once Inventory exists, a Purchasing Assistant reads supplier invoices from Gmail and updates stock.", "estimateIds": ["E2"], "findingIds": ["F6", "F7"] }
+  ],
+  "caveats": [
+    "The restaurant study is an average across 114 sites in 12 countries. It isn't a prediction for one restaurant, and it measured food-waste programs, not an inventory app on its own.",
+    "LeanPath and Stampli sell software. The 4–10% waste range and the invoice throughput figures are theirs, not measurements at Marko's Bistro.",
+    "The invoice benchmark covers fully automated accounts payable. Reading supplier invoices into Inventory is narrower work and may save less time.",
+    "Nothing solid was found on lost sales from stock-outs, so the 2–3 stock-outs a week have no money estimate.",
+    "Payback for Marko isn't calculated because the cost of setting this up isn't known."
+  ],
+  "recommendedOpportunityId": "O1"
+}

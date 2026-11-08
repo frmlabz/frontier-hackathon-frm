@@ -17,4 +17,4 @@ for (const r of rows) {
   total += r.cost;
 }
 for (const [k, v] of Object.entries(by).sort()) console.log(`${k.padEnd(48)} ${String(v.n).padStart(4)} calls  $${v.cost.toFixed(3)}`);
-console.log(`TOTAL: $${total.toFixed(2)} of $40 budget`);
+console.log(`TOTAL: $${total.toFixed(2)} of $80 budget`);
