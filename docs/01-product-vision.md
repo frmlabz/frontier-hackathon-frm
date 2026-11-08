@@ -152,20 +152,7 @@ Six weeks in, Marko runs his restaurant on five custom apps and two AI Employees
 
 ---
 
-## 10. Hackathon demo (suggested scope)
-
-The goal is to show the magic moment: **chat → understanding → app → dashboard**.
-
-1. Blank slate + AI CEO chat that interviews a restaurant owner and fills Company Knowledge pages live.
-2. AI CEO proposes the Inventory solution and builds it on approval.
-3. Working Inventory app with **invoice photo import** (OCR) and **handwritten usage import**.
-4. Dashboard with widgets fed by the Inventory app.
-5. *(Stretch)* One AI Employee, e.g. Purchasing Assistant drafting an order email.
-6. *(Stretch)* A staged "self-healing" moment: an issue is detected and fixed, and the user just sees a friendly note.
-
----
-
-## 11. Positioning
+## 10. Positioning
 
 - **For:** non-technical small business owners (1–50 people).
 - **Against:** generic SaaS stacks (one subscription per problem, nothing connected) and no-code builders (still need you to think like a developer).
