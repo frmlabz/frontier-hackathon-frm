@@ -388,7 +388,8 @@ async function drain() {
     try {
       if (MOCK) {
         const { mockCeoTurn } = await import("./mockAi");
-        await mockCeoTurn(job, { say, tool: runTool });
+        // A short pause before each reply, so tool events land first and the text doesn't arrive instantly.
+        await mockCeoTurn(job, { say: async (t) => { await Bun.sleep(700); await say(t); }, tool: runTool });
       } else {
         await turn(job);
       }

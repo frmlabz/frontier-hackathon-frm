@@ -65,7 +65,7 @@ const YES = /^(yes|yeah|yep|sure|ok|okay|do it|go ahead|sounds good|let'?s)\b/;
 /** Scripted CEO, in 05 §8 order. Stage lives in kv mock:stage (chosen → await-stock) so later messages aren't keyword-swallowed. */
 export async function mockCeoTurn(job: Job, { say, tool }: Ctx) {
   const t = job.text;
-  await sleep(500);
+  await sleep(1200 + Math.random() * 400); // "Thinking" long enough to read as a real turn
   const apps = listApps();
   const inventory = apps.find((a) => /inventor/i.test(a.name));
   const assistant = listPeople().find((p) => p.kind === "ai");
@@ -288,7 +288,7 @@ const RESEARCH_LINES: [string, number][] = [
 export async function mockResearch(request: ResearchRequest, onProgress: (p: { lines: string[]; sources: number }) => void): Promise<Validated> {
   const lines: string[] = [];
   for (const [line, sources] of RESEARCH_LINES) {
-    await sleep(1200);
+    await sleep(1800);
     lines.push(line);
     onProgress({ lines: lines.slice(-4), sources });
   }
