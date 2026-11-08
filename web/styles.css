@@ -30,6 +30,12 @@ body {
   font-size: 15px;
 }
 ::selection { background: rgba(35, 131, 226, 0.18); }
+/* Controls never start a text selection or the touch callout on long-press. */
+button, [role="button"], summary, label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 
 /* thin, Notion-like scrollbars */
 .scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(55, 53, 47, 0.18) transparent; }
